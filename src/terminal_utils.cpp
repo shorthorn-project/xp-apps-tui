@@ -1,9 +1,9 @@
 #include "terminal_utils.hpp"
 #include <print>
 
-#ifndef _WIN32
-#include <sys/ioctl.h>
-#endif
+// #ifndef _WIN32
+// // #include <sys/ioctl.h>
+// #endif
 
 #include <unistd.h>
 
@@ -240,6 +240,27 @@ namespace tui {
 
         flush();
 #endif
+    }
+
+    size_t TerminalUtils::get_visible_string_length(const std::string &string) {
+        size_t length = 0;
+        auto in_escape_sequence = false;
+
+        for (size_t i = 0; i < string.length(); ++i) {
+            if (string[i] == '\033') {
+                in_escape_sequence = true;
+            }
+
+            if (!in_escape_sequence) {
+                length++;
+            }
+
+            if (in_escape_sequence && string[i] == 'm') {
+                in_escape_sequence = false;
+            }
+        }
+
+        return length;
     }
 
     void TerminalUtils::set_color_rgb(uint8_t r, uint8_t g, uint8_t b) {
@@ -684,20 +705,31 @@ namespace tui {
 
     void TerminalUtils::init_platform_terminal() {
 #ifdef _WIN32
-        hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-        if (hConsole != INVALID_HANDLE_VALUE) {
-            GetConsoleScreenBufferInfo(hConsole, &csbi);
-            HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
-            if (hInput != INVALID_HANDLE_VALUE) {
-                GetConsoleMode(hInput, &originalConsoleMode);
-                SetConsoleMode(hInput, ENABLE_PROCESSED_INPUT);
-            }
-        }
-        is_wt = std::getenv("WT_SESSION") ? true : false;
         SetConsoleOutputCP(CP_UTF8);
         SetConsoleCP(CP_UTF8);
 
         hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (hConsole == INVALID_HANDLE_VALUE) {
+            return;
+        }
+
+        DWORD originalOutMode = 0;
+        if (!GetConsoleMode(hConsole, &originalOutMode)) {
+            return;
+        }
+
+        DWORD newOutMode = originalOutMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        SetConsoleMode(hConsole, newOutMode);
+
+        HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
+        if (hInput != INVALID_HANDLE_VALUE) {
+            GetConsoleMode(hInput, &originalConsoleMode);
+            SetConsoleMode(hInput, ENABLE_PROCESSED_INPUT | ENABLE_WINDOW_INPUT);
+        }
+
+        GetConsoleScreenBufferInfo(hConsole, &csbi);
+
+        is_wt = std::getenv("WT_SESSION") ? true : false;
 #else
         if (tcgetattr(STDIN_FILENO, &original_termios) == 0) {
             termios_saved = true;
