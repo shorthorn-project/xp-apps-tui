@@ -1,8 +1,8 @@
 #pragma once
 
 #include "styles.hpp"
-
-#include <iostream>
+#include <string>
+// #include <iostream>
 
 #ifdef _WIN32
 #include <conio.h>
@@ -120,9 +120,9 @@ namespace tui {
             explicit KeyEvent(const Key k = Key::UNKNOWN, const char c = '\0') : key(k), character(c) {}
         };
 
-        static void print_colored(const std::string &text, Color color);
-        static void print_styled(const std::string &text, Style style);
-        static void print_formatted(const std::string &text, Color color, Style style);
+        static void print_colored(std::string &text, Color color);
+        static void print_styled(std::string &text, Style style);
+        static void print_formatted(std::string &text, Color color, Style style);
         static int get_key();
         static bool key_available();
         static std::pair<Key, char> get_input();
@@ -189,7 +189,7 @@ namespace tui {
         }
 
         static void clear_screen() { TerminalUtils::clear_screen(); }
-        static void flush_output() { std::cout.flush(); }
+        static void flush_output() { TerminalUtils::flush(); }
 
         static std::optional<TerminalUtils::KeyEvent> get_key_input();
         static bool key_available();
