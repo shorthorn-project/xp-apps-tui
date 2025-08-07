@@ -36,6 +36,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/rebuildTUI)
 set(LIB_SOURCES
         src/terminal_utils.cpp
         src/navigation_tui.cpp
+        src/styles/gradient.cpp
 )
 
 set(HEADERS
@@ -44,8 +45,9 @@ set(HEADERS
         include/rebuildTUI/section_builder.hpp
         include/rebuildTUI/selectable_item.hpp
         include/rebuildTUI/terminal_utils.hpp
-        include/rebuildTUI/styles.hpp
-        src/styles.cpp
+        include/rebuildTUI/styles/colors.hpp
+        include/rebuildTUI/styles/gradient.hpp
+        include/rebuildTUI/styles/text.hpp
 )
 
 if (BUILD_LIBRARY)

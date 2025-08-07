@@ -2,7 +2,7 @@
 
 
 #include "section.hpp"
-#include "styles.hpp"
+#include "styles/colors.hpp"
 #include "terminal_utils.hpp"
 
 #include <map>
@@ -33,7 +33,7 @@ namespace tui {
             bool gradient_randomize = false;      ///< Randomize gradients
             extras::BorderStyle border_style =
                 extras::BorderStyle::ROUNDED; ///< Border style: "rounded", "sharp", "double" and "ascii"
-            extras::AccentColor accent_color = extras::AccentColor::CYAN; ///< Accent color for highlights
+            extras::AccentColor accent_color = extras::AccentColor::CYAN;            ///< Accent color for highlights
             extras::GradientPreset gradient_preset = extras::GradientPreset::NONE(); ///< Gradient preset
         };
 

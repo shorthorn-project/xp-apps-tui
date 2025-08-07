@@ -1,5 +1,8 @@
 #include "navigation_tui.hpp"
-#include "styles.hpp"
+
+#include <fstream>
+
+#include "styles/colors.hpp"
 #include "terminal_utils.hpp"
 
 #include <print>
@@ -152,9 +155,10 @@ namespace tui {
     void NavigationTUI::return_to_sections() {
         if (current_state_ != NavigationState::MAIN_MENU) {
             change_state(NavigationState::MAIN_MENU);
-            current_selection_index_ = current_section_index_;
-            current_page_ = 0;
+            current_selection_index_ = static_cast<int>(current_section_index_) % config_.layout.sections_per_page;
+            current_section_page_ = static_cast<int>(current_section_index_) / config_.layout.sections_per_page;
             needs_redraw_ = true;
+
         }
     }
 
@@ -186,7 +190,6 @@ namespace tui {
         if (const int total_pages = calculate_total_pages();
             page >= 0 && page < total_pages && page != current_section_page_) {
             current_section_page_ = page;
-            current_selection_index_ = 0;
             needs_redraw_ = true;
         }
     }
@@ -194,7 +197,6 @@ namespace tui {
     void NavigationTUI::go_to_page(const int page) {
         if (const int total_pages = calculate_total_pages(); page >= 0 && page < total_pages && page != current_page_) {
             current_page_ = page;
-            current_selection_index_ = 0;
 
             if (on_page_changed_) {
                 on_page_changed_(page, total_pages);
@@ -405,10 +407,12 @@ namespace tui {
 
     void NavigationTUI::move_selection_down() {
         if (current_state_ == NavigationState::MAIN_MENU) {
-            if (const int items_on_page = get_sections_on_current_page();
-                static_cast<int>(current_selection_index_) < items_on_page - 1) {
+            const int items_on_page = get_sections_on_current_page();
+            const int total_pages = calculate_total_pages();
+
+            if (static_cast<int>(current_selection_index_) < items_on_page - 1) {
                 current_selection_index_++;
-            } else if (current_section_page_ < calculate_total_pages() - 1) {
+            } else if (current_section_page_ < total_pages - 1) {
                 go_to_section_page(current_section_page_ + 1);
                 current_selection_index_ = 0;
             }
@@ -429,8 +433,11 @@ namespace tui {
     }
 
     void NavigationTUI::select_current_item() {
-        if (current_state_ == NavigationState::MAIN_MENU && current_selection_index_ < sections_.size()) {
-            enter_section(current_selection_index_);
+        if (current_state_ == NavigationState::MAIN_MENU) {
+            size_t global_index = current_section_page_ * config_.layout.sections_per_page + current_selection_index_;
+            if (global_index < sections_.size()) {
+                enter_section(global_index);
+            }
         } else {
             toggle_current_item();
         }
@@ -643,26 +650,40 @@ namespace tui {
     }
 
     void NavigationTUI::apply_gradient_text(const std::string &text, const int row, const int col) const {
-        if (!config_.theme.gradient_enabled) {
+        if (!config_.theme.gradient_enabled || text.empty()) {
             return;
         }
 
-        const auto steps = static_cast<int>(text.length());
-        if (steps == 0) {
+        const size_t visible_len = TerminalUtils::get_visible_string_length(text);
+        if (visible_len == 0) {
+            TerminalUtils::move_cursor(row, col);
+            std::print("{}", text);
             return;
         }
 
-        auto gradient = extras::GradientColor::from_preset(config_.theme.gradient_preset, steps);
-
+        auto gradient =
+            extras::GradientColor::from_preset(config_.theme.gradient_preset, static_cast<int>(visible_len));
         if (config_.theme.gradient_randomize) {
             std::ranges::shuffle(gradient, std::mt19937(std::random_device()()));
         }
 
         TerminalUtils::move_cursor(row, col);
 
-        for (auto i = 0; i < steps; i++) {
-            TerminalUtils::set_color_rgb(gradient[i]);
-            std::print("{}", text[i]);
+        size_t gradient_idx = 0;
+        for (size_t i = 0; i < text.length(); ++i) {
+            if (text[i] == '\033') {
+                if (const size_t end_pos = text.find('m', i); end_pos != std::string::npos) {
+                    std::print("{}", text.substr(i, end_pos - i + 1));
+                    i = end_pos;
+                } else {
+                    std::print("{}", text[i]);
+                }
+            } else {
+                if (gradient_idx < gradient.size()) {
+                    TerminalUtils::set_color_rgb(gradient[gradient_idx++]);
+                }
+                std::print("{}", text[i]);
+            }
         }
 
         TerminalUtils::reset_formatting();
@@ -688,6 +709,7 @@ namespace tui {
 
         for (auto i = 0; i < items_on_page; ++i) {
             const size_t global_index = start_index + i;
+            const bool is_selected = i == static_cast<int>(current_selection_index_);
 
             std::string display_text = std::format("{}. {}", global_index + 1, sections_[global_index].name);
             if (config_.text.show_counters) {
@@ -696,21 +718,37 @@ namespace tui {
                     display_text += " (" + std::to_string(selected_count) + "/" + std::to_string(total_count) + ")";
                 }
             }
-            std::string prefix = (i == static_cast<int>(current_selection_index_)) ? "> " : "  ";
-            std::string text = prefix + display_text;
 
-            auto [t_content, t_line_count] = center_string(text, content_width);
-            const int centered_col = left_padding + (content_width - static_cast<int>(text.length())) / 2;
+            const std::string prefix = is_selected ? "> " : "  ";
+            std::string text_to_render = prefix + display_text;
+
+            std::string t_content;
+
+            if (is_selected && config_.theme.use_colors &&
+                !(config_.theme.gradient_enabled && config_.theme.gradient_preset != extras::GradientPreset::NONE())) {
+                const std::string reset_code = "\033[0m";
+                const std::string accent_color_code =
+                    "\033[" + std::to_string(static_cast<int>(config_.theme.accent_color)) + "m";
+                const std::string replacement = reset_code + accent_color_code;
+
+                size_t pos = text_to_render.find(reset_code);
+                while (pos != std::string::npos) {
+                    text_to_render.replace(pos, reset_code.length(), replacement);
+                    pos = text_to_render.find(reset_code, pos + replacement.length());
+                }
+                text_to_render.append(reset_code);
+                t_content = center_string(accent_color_code + text_to_render, content_width).content;
+            } else {
+                t_content = center_string(text_to_render, content_width).content;
+            }
 
             TerminalUtils::move_cursor(items_start_row + i, left_padding);
 
-            if (const bool is_selected = (i == static_cast<int>(current_selection_index_)); is_selected &&
-                config_.theme.gradient_enabled && config_.theme.gradient_preset != extras::GradientPreset::NONE()) {
-                apply_gradient_text(text, items_start_row + i, centered_col);
-            } else if (is_selected && config_.theme.use_colors) {
-                TerminalUtils::set_color(config_.theme.accent_color);
-                std::print("{}", t_content);
-                TerminalUtils::reset_formatting();
+            if (is_selected && config_.theme.gradient_enabled &&
+                config_.theme.gradient_preset != extras::GradientPreset::NONE()) {
+                const int centered_col = left_padding +
+                    (content_width - static_cast<int>(TerminalUtils::get_visible_string_length(text_to_render))) / 2;
+                apply_gradient_text(text_to_render, items_start_row + i, centered_col);
             } else {
                 std::print("{}", t_content);
             }
@@ -894,66 +932,53 @@ namespace tui {
 
     NavigationTUI::FormattedText NavigationTUI::center_string(const std::string &text, const int width) const {
         if (!config_.layout.center_horizontally) {
-            return {text, 1};
+            int lines = text.empty() ? 0 : 1;
+            for (char c : text) {
+                if (c == '\n') {
+                    lines++;
+                }
+            }
+            return {text, lines};
         }
 
-        std::string result_content;
+        std::stringstream final_text_stream;
+        std::stringstream input_stream(text);
+        std::string line;
         auto total_lines = 0;
-        std::string current_line;
+        auto first_line = true;
 
-        for (const char c : text) {
-            if (c == '\n') {
-                if (!current_line.empty()) {
-                    int padding = (width - static_cast<int>(current_line.length())) / 2;
-                    if (padding < 0) {
-                        padding = 0;
-                    }
-                    result_content += std::string(padding, ' ') + current_line + '\n';
-                    total_lines++;
-                    current_line.clear();
-                } else {
-                    result_content += '\n';
-                    total_lines++;
-                }
-            } else {
-                if (static_cast<int>(current_line.length()) >= width) {
-                    if (const size_t last_space = current_line.find_last_of(' ');
-                        last_space != std::string::npos && last_space > 0) {
-                        const std::string next_line = current_line.substr(last_space + 1);
-                        current_line = current_line.substr(0, last_space);
-
-                        int padding = (width - static_cast<int>(current_line.length())) / 2;
-                        if (padding < 0) {
-                            padding = 0;
-                        }
-                        result_content += std::string(padding, ' ') + current_line + '\n';
-                        total_lines++;
-
-                        current_line = next_line;
-                    } else {
-                        int padding = (width - static_cast<int>(current_line.length())) / 2;
-                        if (padding < 0) {
-                            padding = 0;
-                        }
-                        result_content += std::string(padding, ' ') + current_line + '\n';
-                        total_lines++;
-                        current_line.clear();
-                    }
-                }
-                current_line += c;
+        while (std::getline(input_stream, line)) {
+            if (!first_line) {
+                final_text_stream << '\n';
             }
+
+            const size_t visible_len = TerminalUtils::get_visible_string_length(line);
+
+            auto padding = 0;
+            if (width > static_cast<int>(visible_len)) {
+                padding = static_cast<int>(width - visible_len) / 2;
+            }
+
+            if (padding > 0) {
+                final_text_stream << std::string(padding, ' ');
+            }
+            final_text_stream << line;
+
+            total_lines++;
+            first_line = false;
         }
 
-        if (!current_line.empty()) {
-            int padding = (width - static_cast<int>(current_line.length())) / 2;
-            if (padding < 0) {
-                padding = 0;
-            }
-            result_content += std::string(padding, ' ') + current_line;
+        if (text.empty()) {
+            return {"", 0};
+        }
+
+        if (!text.empty() && text.back() == '\n') {
+            final_text_stream << '\n';
             total_lines++;
         }
 
-        return {result_content, total_lines};
+
+        return {final_text_stream.str(), total_lines};
     }
 
     NavigationBuilder &NavigationBuilder::theme_indicators(const char selected, const char unselected) {
