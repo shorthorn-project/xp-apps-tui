@@ -1,7 +1,8 @@
 #pragma once
 
-#include "styles.hpp"
 #include <string>
+#include "styles/colors.hpp"
+#include "styles/gradient.hpp"
 // #include <iostream>
 
 #ifdef _WIN32
@@ -102,6 +103,7 @@ namespace tui {
         static std::pair<int, int> get_terminal_size();
         static void set_color(Color color);
         static void set_color(extras::AccentColor color);
+        static size_t get_visible_string_length(const std::string& string);
 
         // Gradient
         static void set_color_rgb(uint8_t r, uint8_t g, uint8_t b);
