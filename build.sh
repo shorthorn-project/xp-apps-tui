@@ -169,7 +169,7 @@ echo -e "${BLUE}⚙️  Configuring project with CMake...${NC}"
 cmake $CMAKE_OPTIONS "$PROJECT_DIR"
 
 echo -e "${BLUE}🔨 Building project...${NC}"
-cmake --build . --config $BUILD_TYPE
+cmake --build . --config $BUILD_TYPE -j $(nproc --ignore=2)
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}"
@@ -181,18 +181,18 @@ if [ $? -eq 0 ]; then
     echo -e "${CYAN}Build Results:${NC}"
 
     if [ "$BUILD_LIBRARY" = true ] && [ -f "./lib/libtui_lib.a" ]; then
-        echo "   📚 Library: ./lib/libtui_lib.a"
+        echo "   📚 Library: ${BUILD_DIR}/lib/libtui_lib.a"
     fi
 
     if [ "$BUILD_EXECUTABLE" = true ] && [ -f "./bin/custom_tui" ]; then
-        echo "   🎯 Executable: ./bin/custom_tui"
+        echo "   🎯 Executable: ${BUILD_DIR}/bin/custom_tui"
     fi
 
     if [ "$BUILD_EXAMPLES" = true ]; then
         echo "   📋 Examples:"
         for exe in ./bin/*; do
             if [ -f "$exe" ] && [ -x "$exe" ] && [[ $(basename "$exe") != "custom_tui" ]]; then
-                echo "       ./bin/$(basename "$exe")"
+                echo "       ${BUILD_DIR}/bin/$(basename "$exe")"
             fi
         done
     fi
