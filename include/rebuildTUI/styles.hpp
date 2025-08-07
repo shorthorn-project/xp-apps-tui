@@ -14,6 +14,7 @@ namespace tui::extras {
 
     enum class AccentColor {
         RESET = 0,
+        BLACK = 30,
         RED = 31,
         GREEN = 32,
         YELLOW = 33,
@@ -21,6 +22,7 @@ namespace tui::extras {
         MAGENTA = 35,
         CYAN = 36,
         WHITE = 37,
+        BRIGHT_BLACK = 90,
         BRIGHT_RED = 91,
         BRIGHT_GREEN = 92,
         BRIGHT_YELLOW = 93,

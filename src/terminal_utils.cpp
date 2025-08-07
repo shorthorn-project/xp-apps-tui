@@ -181,52 +181,52 @@ namespace tui {
         if (hConsole != INVALID_HANDLE_VALUE) {
             WORD attributes = 0;
             switch (color) {
-            case Color::BLACK:
+            case extras::AccentColor::BLACK:
                 attributes = 0;
                 break;
-            case Color::RED:
+            case extras::AccentColor::RED:
                 attributes = FOREGROUND_RED;
                 break;
-            case Color::GREEN:
+            case extras::AccentColor::GREEN:
                 attributes = FOREGROUND_GREEN;
                 break;
-            case Color::YELLOW:
+            case extras::AccentColor::YELLOW:
                 attributes = FOREGROUND_RED | FOREGROUND_GREEN;
                 break;
-            case Color::BLUE:
+            case extras::AccentColor::BLUE:
                 attributes = FOREGROUND_BLUE;
                 break;
-            case Color::MAGENTA:
+            case extras::AccentColor::MAGENTA:
                 attributes = FOREGROUND_RED | FOREGROUND_BLUE;
                 break;
-            case Color::CYAN:
+            case extras::AccentColor::CYAN:
                 attributes = FOREGROUND_GREEN | FOREGROUND_BLUE;
                 break;
-            case Color::WHITE:
+            case extras::AccentColor::WHITE:
                 attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
                 break;
-            case Color::BRIGHT_BLACK:
+            case extras::AccentColor::BRIGHT_BLACK:
                 attributes = FOREGROUND_INTENSITY;
                 break;
-            case Color::BRIGHT_RED:
+            case extras::AccentColor::BRIGHT_RED:
                 attributes = FOREGROUND_RED | FOREGROUND_INTENSITY;
                 break;
-            case Color::BRIGHT_GREEN:
+            case extras::AccentColor::BRIGHT_GREEN:
                 attributes = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
                 break;
-            case Color::BRIGHT_YELLOW:
+            case extras::AccentColor::BRIGHT_YELLOW:
                 attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
                 break;
-            case Color::BRIGHT_BLUE:
+            case extras::AccentColor::BRIGHT_BLUE:
                 attributes = FOREGROUND_BLUE | FOREGROUND_INTENSITY;
                 break;
-            case Color::BRIGHT_MAGENTA:
+            case extras::AccentColor::BRIGHT_MAGENTA:
                 attributes = FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
                 break;
-            case Color::BRIGHT_CYAN:
+            case extras::AccentColor::BRIGHT_CYAN:
                 attributes = FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
                 break;
-            case Color::BRIGHT_WHITE:
+            case extras::AccentColor::BRIGHT_WHITE:
                 attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
                 break;
             default:

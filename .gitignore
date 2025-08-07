@@ -5,4 +5,4 @@ install/
 *.rej
 .vscode/
 .cache
-.idea/
+#.idea/
