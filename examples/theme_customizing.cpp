@@ -3,7 +3,8 @@
 #include <section_builder.hpp>
 
 // for custom layout borders
-#include <styles.hpp>
+#include <rebuildTUI/styles/colors.hpp>
+#include <rebuildTUI/styles/text.hpp>
 
 using namespace tui;
 // using namespace tui;
@@ -14,9 +15,14 @@ int main() {
                              .build();
 
     auto color_section =
-        SectionBuilder("Color Scheme").add_items(std::vector<std::string>{"Blue", "Green", "Red", "Purple"}).build();
+        SectionBuilder(std::format("Color {}",
+                                   extras::set_style("Scheme", extras::TextMode::BOLD, extras::TextMode::UNDERLINE,
+                                                     extras::TextMode::SLOW_BLINK)))
+            .add_items(std::vector<std::string>{"Blue", "Green", "Red", "Purple"})
+            .build();
 
-    auto ui_section = SectionBuilder("UI Settings").add_item("Enable Animations").add_item("Show Icons").build();
+    auto ui_section =
+        SectionBuilder("UI Settings").add_item("Enable Animations", "testing\n\n\n1337").add_item("Show Icons").build();
 
     NavigationBuilder()
         .add_sections({theme_section, color_section, ui_section})
@@ -27,7 +33,7 @@ int main() {
         })
 
         // Theme and styling
-        // .theme_fancy()   // ✓  / ○
+        // .theme_fancy() // ✓  / ○
         // .theme_minimal() // * / nothing
         // .theme_modern()  // ● / "○
         .theme_indicators('+', '-')     // Custom indicators
