@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(rebuildTUI VERSION 0.0.6 LANGUAGES CXX)
+include(FetchContent)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -50,6 +51,13 @@ set(HEADERS
         include/rebuildTUI/styles/text.hpp
 )
 
+FetchContent_Declare(
+        fmt
+        GIT_REPOSITORY https://github.com/fmtlib/fmt
+        GIT_TAG 407c905e45ad75fc29bf0f9bb7c5c2fd3475976f
+)
+FetchContent_MakeAvailable(fmt)
+
 if (BUILD_LIBRARY)
     add_library(rebuildTUI STATIC ${LIB_SOURCES} ${HEADERS})
     add_library(rebuildTUI::rebuildTUI ALIAS rebuildTUI)
@@ -65,6 +73,8 @@ if (BUILD_LIBRARY)
             ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
             PUBLIC_HEADER "${HEADERS}"
     )
+
+    target_link_libraries(rebuildTUI PUBLIC fmt::fmt)
 
     message(STATUS "Building static library: rebuildTUI")
 endif ()
@@ -124,7 +134,7 @@ if (INSTALL_REBUILDTUI)
     include(GNUInstallDirs)
     include(CMakePackageConfigHelpers)
 
-    install(TARGETS rebuildTUI
+    install(TARGETS rebuildTUI fmt
             EXPORT rebuildTUITargets
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -135,6 +145,12 @@ if (INSTALL_REBUILDTUI)
     install(DIRECTORY include/rebuildTUI
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rebuildTUI
             FILES_MATCHING PATTERN "*.hpp"
+    )
+
+    get_target_property(FMT_SOURCE_DIR fmt SOURCE_DIR)
+    install(DIRECTORY ${FMT_SOURCE_DIR}/include/fmt
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+            FILES_MATCHING PATTERN "*.h"
     )
 
     if (BUILD_EXAMPLES)

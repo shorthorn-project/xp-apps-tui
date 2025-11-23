@@ -1,10 +1,11 @@
 #pragma once
 
 #include <any>
-#include <format>
+// #include <format>
 #include <functional>
-#include <string>
+// #include <string>
 #include <utility>
+#include <fmt/format.h>
 
 namespace tui {
 
@@ -72,7 +73,7 @@ namespace tui {
         [[nodiscard]] std::string get_display_string(const char selected_char = '*',
                                                      const char unselected_char = ' ') const {
             char indicator = selected ? selected_char : unselected_char;
-            return std::format("{} {}", std::string(1, indicator), name);
+            return fmt::format("{} {}", std::string(1, indicator), name);
         }
 
         [[nodiscard]] std::string get_display_string(const std::string &selected_prefix,
@@ -82,7 +83,7 @@ namespace tui {
         }
 
         [[nodiscard]] std::string get_full_description() const {
-            return (!description.empty()) ? std::format("{} - {}", name, description) : name;
+            return (!description.empty()) ? fmt::format("{} - {}", name, description) : name;
         }
 
         [[nodiscard]] bool has_user_data() const { return user_data.has_value(); }

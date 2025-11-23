@@ -280,7 +280,13 @@ namespace tui {
         }
 
         MultiSectionBuilder &sort_sections() {
+#if __cplusplus >= 202002L
             std::ranges::sort(sections_, [](const Section &a, const Section &b) { return a.name < b.name; });
+#else
+            std::sort(sections_.begin(), sections_.end(),
+                      [](const Section &a, const Section &b) { return a.name < b.name; });
+#endif
+
             return *this;
         }
 

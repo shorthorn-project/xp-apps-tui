@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "section.hpp"
 #include "styles/colors.hpp"
 #include "terminal_utils.hpp"

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <optional>
 #include "styles/colors.hpp"
 #include "styles/gradient.hpp"
 // #include <iostream>

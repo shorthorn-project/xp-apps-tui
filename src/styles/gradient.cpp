@@ -139,4 +139,6 @@ namespace tui::extras {
         return gradient;
     }
 
+    bool GradientPreset::operator!=(const GradientPreset& other) const { return !(*this == other); }
+
 }; // namespace tui::extras

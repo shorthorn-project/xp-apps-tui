@@ -1,9 +1,10 @@
 #include "terminal_utils.hpp"
-#include <print>
+// #include <print>
+#include <fmt/base.h>
 
-// #ifndef _WIN32
-// // #include <sys/ioctl.h>
-// #endif
+#ifndef _WIN32
+#include <sys/ioctl.h>
+#endif
 
 #include <unistd.h>
 
@@ -43,7 +44,7 @@ namespace tui {
             SetConsoleCursorPosition(hConsole, coord);
         }
 #else
-        std::print("\033[2J\033[H");
+        fmt::print("\033[2J\033[H");
         flush();
 #endif
     }
@@ -55,7 +56,7 @@ namespace tui {
             SetConsoleCursorPosition(hConsole, coord);
         }
 #else
-        std::print("\033[{};{}H", row, col);
+        fmt::print("\033[{};{}H", row, col);
         flush();
 #endif
     }
@@ -69,7 +70,7 @@ namespace tui {
             SetConsoleCursorInfo(hConsole, &cursorInfo);
         }
 #else
-        std::print("\033[?25l");
+        fmt::print("\033[?25l");
         flush();
 #endif
     }
@@ -83,7 +84,7 @@ namespace tui {
             SetConsoleCursorInfo(hConsole, &cursorInfo);
         }
 #else
-        std::print("\033[?25h");
+        fmt::print("\033[?25h");
         flush();
 #endif
     }
@@ -170,7 +171,7 @@ namespace tui {
             SetConsoleTextAttribute(hConsole, attributes);
         }
 #else
-        std::print("\033[{}m", (color == Color::RESET) ? 0 : static_cast<int>(color));
+        fmt::print("\033[{}m", (color == Color::RESET) ? 0 : static_cast<int>(color));
 
         flush();
 #endif
@@ -236,7 +237,7 @@ namespace tui {
             SetConsoleTextAttribute(hConsole, attributes);
         }
 #else
-        std::print("\033[{}m", (color == extras::AccentColor::RESET) ? 0 : static_cast<int>(color));
+        fmt::print("\033[{}m", (color == extras::AccentColor::RESET) ? 0 : static_cast<int>(color));
 
         flush();
 #endif
@@ -267,7 +268,7 @@ namespace tui {
         // #ifdef _WIN32
         //         printf("\033[38;2;%d;%d;%dm", r, g, b);
         // #else
-        std::print("\033[38;2;{};{};{}m", static_cast<int>(r), static_cast<int>(g), static_cast<int>(b));
+        fmt::print("\033[38;2;{};{};{}m", static_cast<int>(r), static_cast<int>(g), static_cast<int>(b));
         // #endif
         flush();
     }
@@ -302,7 +303,7 @@ namespace tui {
             }
         }
 #else
-        std::print("\033[{}m", static_cast<int>(style));
+        fmt::print("\033[{}m", static_cast<int>(style));
         // std::cout << "\033[" << static_cast<int>(style) << "m";
         flush();
 #endif
@@ -314,7 +315,7 @@ namespace tui {
             SetConsoleTextAttribute(hConsole, csbi.wAttributes);
         }
 #else
-        std::print("\033[0m");
+        fmt::print("\033[0m");
         flush();
 #endif
     }
@@ -322,7 +323,7 @@ namespace tui {
     [[deprecated("unused, will be removed in 0.0.8")]]
     void TerminalUtils::print_colored(std::string &text, Color color) {
         set_color(color);
-        std::print("{}", text);
+        fmt::print("{}", text);
         reset_formatting();
         flush();
     }
@@ -330,7 +331,7 @@ namespace tui {
     [[deprecated("unused, will be removed in 0.0.8")]]
     void TerminalUtils::print_styled(std::string &text, Style style) {
         set_style(style);
-        std::print("{}", text);
+        fmt::print("{}", text);
         reset_formatting();
         flush();
     }
@@ -339,7 +340,7 @@ namespace tui {
     void TerminalUtils::print_formatted(std::string &text, Color color, Style style) {
         set_color(color);
         set_style(style);
-        std::print("{}", text);
+        fmt::print("{}", text);
         reset_formatting();
         flush();
     }
@@ -544,7 +545,7 @@ namespace tui {
     void TerminalUtils::draw_horizontal_line(const int row, const int start_col, const int length, const char ch) {
         move_cursor(row, start_col);
         for (auto i = 0; i < length; ++i) {
-            std::print("{}", ch);
+            fmt::print("{}", ch);
         }
 
         flush();
@@ -553,7 +554,7 @@ namespace tui {
     void TerminalUtils::draw_vertical_line(int start_row, int col, int length, char ch) {
         for (int i = 0; i < length; ++i) {
             move_cursor(start_row + i, col);
-            std::print("{}", ch);
+            fmt::print("{}", ch);
         }
 
         flush();
@@ -562,28 +563,28 @@ namespace tui {
     void TerminalUtils::draw_box(int top_row, int left_col, int width, int height) {
         // Top border
         move_cursor(top_row, left_col);
-        std::print("+");
+        fmt::print("+");
         for (int i = 1; i < width - 1; ++i) {
-            std::print("-");
+            fmt::print("-");
         }
 
-        std::print("+");
+        fmt::print("+");
 
         // Side borders
         for (int i = 1; i < height - 1; ++i) {
             move_cursor(top_row + i, left_col);
-            std::print("|");
+            fmt::print("|");
             move_cursor(top_row + i, left_col + width - 1);
-            std::print("|");
+            fmt::print("|");
         }
 
         // Bottom border
         move_cursor(top_row + height - 1, left_col);
-        std::print("+");
+        fmt::print("+");
         for (int i = 1; i < width - 1; ++i) {
-            std::print("-");
+            fmt::print("-");
         }
-        std::print("+");
+        fmt::print("+");
 
         flush();
     }
@@ -596,13 +597,13 @@ namespace tui {
             move_cursor(row, 1);
         }
 
-        std::print("{}", padded_text);
+        fmt::print("{}", padded_text);
         flush();
     }
 
     void TerminalUtils::print_at(int row, int col, const std::string &text) {
         move_cursor(row, col);
-        std::print("{}", text);
+        fmt::print("{}", text);
         flush();
     }
 
@@ -612,7 +613,7 @@ namespace tui {
             GetConsoleScreenBufferInfo(hConsole, &csbi);
         }
 #else
-        std::print("\033[s");
+        fmt::print("\033[s");
         flush();
 #endif
     }
@@ -623,7 +624,7 @@ namespace tui {
             SetConsoleCursorPosition(hConsole, csbi.dwCursorPosition);
         }
 #else
-        std::print("\033[u");
+        fmt::print("\033[u");
         flush();
 #endif
     }

@@ -15,7 +15,7 @@ int main() {
                              .build();
 
     auto color_section =
-        SectionBuilder(std::format("Color {}",
+        SectionBuilder(fmt::format("Color {}",
                                    extras::set_style("Scheme", extras::TextMode::BOLD, extras::TextMode::UNDERLINE,
                                                      extras::TextMode::SLOW_BLINK)))
             .add_items(std::vector<std::string>{"Blue", "Green", "Red", "Purple"})
@@ -28,7 +28,7 @@ int main() {
         .add_sections({theme_section, color_section, ui_section})
         .on_item_toggled([](const size_t section_idx, const size_t item_idx, const bool selected) {
             if (section_idx == 0 && item_idx == 0 && selected) {
-                std::println("Applying dark theme...");
+                fmt::println("Applying dark theme...");
             }
         })
 

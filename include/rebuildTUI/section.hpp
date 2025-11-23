@@ -91,7 +91,13 @@ namespace tui {
             return (it != items.end()) ? &(*it) : nullptr;
         }
         SelectableItem *get_item_by_id(int id) {
+#if __cplusplus >= 202002L
             const auto it = std::ranges::find_if(items, [id](const SelectableItem &item) { return item.id == id; });
+#else
+            const auto it =
+                std::find_if(items.begin(), items.end(), [id](const SelectableItem &item) { return item.id == id; });
+#endif
+
             return (it != items.end()) ? &(*it) : nullptr;
         }
 
@@ -118,7 +124,11 @@ namespace tui {
         }
 
         [[nodiscard]] size_t get_selected_count() const {
+#if __cplusplus >= 202002L
             return std::ranges::count_if(items, [](const SelectableItem &item) { return item.selected; });
+#else
+            return std::count_if(items.begin(), items.end(), [](const SelectableItem &item) { return item.selected; });
+#endif
         }
 
         [[nodiscard]] std::vector<std::string> get_selected_names() const {
@@ -183,7 +193,7 @@ namespace tui {
         }
 
         [[nodiscard]] std::string get_display_string() const {
-            return (!description.empty()) ? std::format("{} - {}", name, description) : name;
+            return (!description.empty()) ? fmt::format("{} - {}", name, description) : name;
         }
 
         [[nodiscard]] std::string get_display_string_with_count() const {
@@ -191,7 +201,7 @@ namespace tui {
             size_t total = size();
 
             std::string base =
-                (total > 0) ? std::format("{} ({}/{})", get_display_string(), selected, total) : get_display_string();
+                (total > 0) ? fmt::format("{} ({}/{})", get_display_string(), selected, total) : get_display_string();
 
             return base;
         }
@@ -207,8 +217,15 @@ namespace tui {
         }
 
         bool remove_item_by_name(const std::string &name) {
+            // TODO: finish
+#if __cplusplus >= 202002L
             const auto it =
                 std::ranges::find_if(items, [&name](const SelectableItem &item) { return item.name == name; });
+#else
+            const auto it = std::find_if(items.begin(), items.end(),
+                                         [&name](const SelectableItem &item) { return item.name == name; });
+#endif
+
             if (it != items.end()) {
                 items.erase(it);
                 return true;
@@ -219,13 +236,24 @@ namespace tui {
         void clear_items() { items.clear(); }
 
         void sort_items_by_name() {
+#if __cplusplus >= 202002L
             std::ranges::sort(items, [](const SelectableItem &a, const SelectableItem &b) { return a.name < b.name; });
+#else
+            std::sort(items.begin(), items.end(),
+                      [](const SelectableItem &a, const SelectableItem &b) { return a.name < b.name; });
+#endif
         }
 
         void sort_items_by_selection(bool selected_first = true) {
+#if __cplusplus >= 202002L
             std::ranges::sort(items, [selected_first](const SelectableItem &a, const SelectableItem &b) {
                 return selected_first ? a.selected && !b.selected : !a.selected && b.selected;
             });
+#else
+            std::sort(items.begin(), items.end(), [selected_first](const SelectableItem &a, const SelectableItem &b) {
+                return selected_first ? a.selected && !b.selected : !a.selected && b.selected;
+            });
+#endif
         }
 
         [[nodiscard]] bool has_user_data() const { return user_data.has_value(); }

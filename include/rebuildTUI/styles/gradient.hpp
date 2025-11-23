@@ -45,6 +45,7 @@ namespace tui::extras {
         [[nodiscard]] const v_styles& custom_colors() const;
 
         bool operator==(const GradientPreset& other) const;
+        bool operator!=(const GradientPreset& none) const;
 
     private:
         explicit GradientPreset(const PresetType type) : type_(type) {}
