@@ -37,8 +37,8 @@ int main() {
         // .theme_fancy() // ✓  / ○
         // .theme_minimal() // * / nothing
         // .theme_modern()  // ● / "○
-        .theme_indicators('+', '-')     // Custom indicators
-        .theme_prefixes("[X] ", "[ ] ") // Custom prefixes
+        .theme_indicators('+', '-')            // Custom indicators
+        .theme_prefixes("[X] ", "[ ] ", "-> ") // Custom prefixes with highlight indicator
 
         // Set custom layout borders
         .layout_borders(true)

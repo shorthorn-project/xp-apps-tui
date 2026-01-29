@@ -766,6 +766,16 @@ namespace tui {
         const auto items_on_page = end_index - start_index;
         const int items_start_row = start_row + 2 + config_.layout.vertical_padding;
 
+        const size_t highlight_v_w = TerminalUtils::get_visible_string_length(config_.theme.highlighted_prefix);
+
+        struct SectionItem {
+            std::string base_text;
+            bool is_selected;
+            size_t v_width;
+        };
+        std::vector<SectionItem> items_to_render;
+        size_t max_v_width = 0;
+
         for (auto i = 0; i < items_on_page; ++i) {
             const size_t global_index = start_index + i;
             const bool is_selected = i == static_cast<int>(current_selection_index_);
@@ -778,37 +788,36 @@ namespace tui {
                 }
             }
 
-            const std::string prefix = is_selected ? "> " : "  ";
-            std::string text_to_render = prefix + display_text;
-
-            std::string t_content;
-
-            if (is_selected && config_.theme.use_colors &&
-                !(config_.theme.gradient_enabled && config_.theme.gradient_preset != extras::GradientPreset::NONE())) {
-                const std::string reset_code = "\033[0m";
-                const std::string accent_color_code = get_color_sequence(config_.theme.palette.selected_item);
-                const std::string replacement = reset_code + accent_color_code;
-
-                size_t pos = text_to_render.find(reset_code);
-                while (pos != std::string::npos) {
-                    text_to_render.replace(pos, reset_code.length(), replacement);
-                    pos = text_to_render.find(reset_code, pos + replacement.length());
-                }
-                text_to_render.append(reset_code);
-                t_content = center_string(accent_color_code + text_to_render, content_width).content;
-            } else {
-                t_content = center_string(text_to_render, content_width).content;
+            const size_t total_v_w = highlight_v_w + TerminalUtils::get_visible_string_length(display_text);
+            if (total_v_w > max_v_width) {
+                max_v_width = total_v_w;
             }
 
-            TerminalUtils::move_cursor(items_start_row + i, left_padding);
+            items_to_render.push_back({display_text, is_selected, total_v_w});
+        }
 
-            if (is_selected && config_.theme.gradient_enabled &&
-                config_.theme.gradient_preset != extras::GradientPreset::NONE()) {
-                const int centered_col = left_padding +
-                    (content_width - static_cast<int>(TerminalUtils::get_visible_string_length(text_to_render))) / 2;
-                apply_gradient_text(text_to_render, items_start_row + i, centered_col);
+        const int block_offset = (config_.layout.center_horizontally && content_width > static_cast<int>(max_v_width))
+            ? (content_width - static_cast<int>(max_v_width)) / 2
+            : 0;
+
+        for (size_t i = 0; i < items_to_render.size(); ++i) {
+            const auto& item = items_to_render[i];
+            const std::string highlight =
+                item.is_selected ? config_.theme.highlighted_prefix : std::string(highlight_v_w, ' ');
+
+            const std::string text_to_render = highlight + item.base_text;
+            TerminalUtils::move_cursor(items_start_row + static_cast<int>(i), left_padding + block_offset);
+
+            if (item.is_selected && config_.theme.use_colors &&
+                !(config_.theme.gradient_enabled && config_.theme.gradient_preset != extras::GradientPreset::NONE())) {
+                const std::string accent_color_code = get_color_sequence(config_.theme.palette.selected_item);
+                fmt::print("{}{}", accent_color_code, text_to_render);
+                TerminalUtils::reset_formatting();
+            } else if (item.is_selected && config_.theme.gradient_enabled &&
+                       config_.theme.gradient_preset != extras::GradientPreset::NONE()) {
+                apply_gradient_text(text_to_render, items_start_row + static_cast<int>(i), left_padding + block_offset);
             } else {
-                fmt::print("{}", t_content);
+                fmt::print("{}", text_to_render);
             }
         }
     }
@@ -837,36 +846,58 @@ namespace tui {
             return;
         }
 
+        size_t max_v_width = 0;
+
+        struct ItemData {
+            const SelectableItem* item;
+            std::string display_text;
+            bool is_selected;
+        };
+        std::vector<ItemData> items;
+
         auto [first, second] = get_current_page_bounds();
-
         for (size_t i = first; i < second; ++i) {
-            TerminalUtils::move_cursor(static_cast<int>(items_start_row + (i - first)), left_padding);
             const auto* item = section.get_item(i);
-
             if (!item) {
-                return;
+                continue;
             }
 
-            std::string display_text = format_item_with_theme(*item, (i - first) == current_selection_index_);
-            const auto [content, line_count] = center_string(display_text, content_width);
-            const auto centered_col = left_padding + (content_width - static_cast<int>(display_text.length())) / 2;
+            const bool is_selected = (i - first) == current_selection_index_;
+            std::string display_text = format_item_with_theme(*item, is_selected);
+            size_t v_width = TerminalUtils::get_visible_string_length(display_text);
 
-            if (i - first != current_selection_index_) {
+            if (v_width > max_v_width) {
+                max_v_width = v_width;
+            }
+
+            items.push_back({item, display_text, is_selected});
+        }
+
+        const int block_offset = (config_.layout.center_horizontally && content_width > static_cast<int>(max_v_width))
+            ? (content_width - static_cast<int>(max_v_width)) / 2
+            : 0;
+
+        for (size_t i = 0; i < items.size(); ++i) {
+            const auto& data = items[i];
+            const int current_row = static_cast<int>(items_start_row + i);
+            TerminalUtils::move_cursor(current_row, left_padding + block_offset);
+
+            if (!data.is_selected) {
                 if (config_.theme.use_colors) {
-                    fmt::print("{}", get_color_sequence(config_.theme.palette.unselected_item) + content);
+                    fmt::print("{}{}", get_color_sequence(config_.theme.palette.unselected_item), data.display_text);
                     TerminalUtils::reset_formatting();
                 } else {
-                    fmt::print("{}", content);
+                    fmt::print("{}", data.display_text);
                 }
             } else if (config_.theme.gradient_enabled &&
                        config_.theme.gradient_preset != extras::GradientPreset::NONE()) {
-                apply_gradient_text(display_text, static_cast<int>(items_start_row + (i - first)), centered_col);
+                apply_gradient_text(data.display_text, current_row, left_padding + block_offset);
             } else {
                 if (config_.theme.use_colors) {
-                    fmt::print("{}", get_color_sequence(config_.theme.palette.selected_item) + content);
+                    fmt::print("{}{}", get_color_sequence(config_.theme.palette.selected_item), data.display_text);
                     TerminalUtils::reset_formatting();
                 } else {
-                    fmt::print("{}", content);
+                    fmt::print("{}", data.display_text);
                 }
             }
         }
@@ -937,8 +968,10 @@ namespace tui {
 
     std::string NavigationTUI::format_item_with_theme(const SelectableItem& item, const bool is_selected) const {
         const std::string prefix = item.selected ? config_.theme.selected_prefix : config_.theme.unselected_prefix;
-        // TODO: maybe add configuration for highlighted prefix?
-        std::string display_text = fmt::format("{}{} {}", (is_selected) ? "> " : " ", prefix, item.name);
+        const std::string highlight = is_selected
+            ? config_.theme.highlighted_prefix
+            : std::string(TerminalUtils::get_visible_string_length(config_.theme.highlighted_prefix), ' ');
+        std::string display_text = fmt::format("{}{} {}", highlight, prefix, item.name);
 
         return display_text;
     }
@@ -1067,9 +1100,11 @@ namespace tui {
         return *this;
     }
 
-    NavigationBuilder& NavigationBuilder::theme_prefixes(const std::string& selected, const std::string& unselected) {
+    NavigationBuilder& NavigationBuilder::theme_prefixes(const std::string& selected, const std::string& unselected,
+                                                         const std::string& highlighted) {
         config_.theme.selected_prefix = selected;
         config_.theme.unselected_prefix = unselected;
+        config_.theme.highlighted_prefix = highlighted;
         return *this;
     }
 

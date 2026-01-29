@@ -23,14 +23,15 @@ namespace tui {
          * @brief Display theme configuration
          */
         struct Theme {
-            char selected_indicator = '*';        ///< Character for selected items
-            char unselected_indicator = ' ';      ///< Character for unselected items
-            std::string selected_prefix = "✓ ";   ///< Prefix for selected items
-            std::string unselected_prefix = "  "; ///< Prefix for unselected items
-            bool use_unicode = true;              ///< Whether to use Unicode characters
-            bool use_colors = true;               ///< Whether to use ANSI colors
-            bool gradient_enabled = false;        ///< Enable gradient support
-            bool gradient_randomize = false;      ///< Randomize gradients
+            char selected_indicator = '*';         ///< Character for selected items
+            char unselected_indicator = ' ';       ///< Character for unselected items
+            std::string selected_prefix = "✓ ";    ///< Prefix for selected items
+            std::string unselected_prefix = "  ";  ///< Prefix for unselected items
+            std::string highlighted_prefix = "> "; ///< Prefix for currently highlighted item
+            bool use_unicode = true;               ///< Whether to use Unicode characters
+            bool use_colors = true;                ///< Whether to use ANSI colors
+            bool gradient_enabled = false;         ///< Enable gradient support
+            bool gradient_randomize = false;       ///< Randomize gradients
             extras::BorderStyle border_style =
                 extras::BorderStyle::ROUNDED; ///< Border style: "rounded", "sharp", "double" and "ascii"
             extras::AccentColor accent_color = extras::AccentColor::CYAN;            ///< Accent color for highlights
@@ -373,7 +374,8 @@ namespace tui {
          * @brief Theme configuration methods
          */
         NavigationBuilder& theme_indicators(char selected, char unselected);
-        NavigationBuilder& theme_prefixes(const std::string& selected, const std::string& unselected);
+        NavigationBuilder& theme_prefixes(const std::string& selected, const std::string& unselected,
+                                          const std::string& highlighted = "> ");
         NavigationBuilder& theme_unicode(bool enable);
         NavigationBuilder& theme_colors(bool enable);
         NavigationBuilder& theme_gradient_support(bool enable);

@@ -249,15 +249,21 @@ namespace tui {
         auto in_escape_sequence = false;
 
         for (size_t i = 0; i < string.length(); ++i) {
-            if (string[i] == '\033') {
+            const unsigned char c = static_cast<unsigned char>(string[i]);
+
+            if (c == '\033') {
                 in_escape_sequence = true;
             }
 
             if (!in_escape_sequence) {
-                length++;
+                // Simple UTF-8 check: only increment for the first byte of a sequence
+                // (bits 10xxxxxx are continuation bytes)
+                if ((c & 0xC0) != 0x80) {
+                    length++;
+                }
             }
 
-            if (in_escape_sequence && string[i] == 'm') {
+            if (in_escape_sequence && c == 'm') {
                 in_escape_sequence = false;
             }
         }
