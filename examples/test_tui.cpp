@@ -1,10 +1,10 @@
+#include <fmt/core.h>
 #include <iostream>
 #include <memory>
-#include <print>
 #include <string>
 #include <vector>
-#include "navigation_tui.hpp"
-#include "section_builder.hpp"
+#include "rebuildtui.hpp"
+#include "ui/section_builder.hpp"
 
 using namespace tui;
 
@@ -29,7 +29,7 @@ std::vector<Section> generate_comprehensive_configuration() {
                     "Block Telemetry",       "Disable Location Tracking", "Clear Web Data", "Disable Microphone Access",
                     "Disable Camera Access", "Enable Firewall",           "Secure DNS",     "VPN Integration"};
                 if (idx < items.size()) {
-                    std::println("🔐 Privacy setting '{}' {}", items[idx], (selected ? "ENABLED" : "DISABLED"));
+                    fmt::println("🔐 Privacy setting '{}' {}", items[idx], (selected ? "ENABLED" : "DISABLED"));
                 }
             })
             .build();
@@ -164,7 +164,7 @@ int main() {
 
                 .add_sections(sections)
 
-                .on_section_selected([](size_t /*index*/, const Section &section) {
+                .on_section_selected([](size_t /*index*/, const Section& section) {
                     std::cout << "📂 Entered section: " << section.name;
                     if (!section.description.empty()) {
                         std::cout << " - " << section.description;
@@ -202,36 +202,38 @@ int main() {
                         return false; // Not handled
                     }
                 })
-                .on_exit([](const std::vector<Section> &secs) {
-                    std::println(R"(\n🎉 Configuration Complete!
+                .on_exit([](const std::vector<Section>& secs) {
+                    fmt::println(R"(\n🎉 Configuration Complete!
 ==========================
 📊 Final Configuration Summary:)");
 
                     size_t total_selected = 0;
                     size_t total_sections_with_selections = 0;
 
-                    for (const auto &section : secs) {
+                    for (const auto& section : secs) {
                         if (auto selected_items = section.get_selected_names(); !selected_items.empty()) {
                             total_sections_with_selections++;
-                            std::println("🔹 {} ({} items):", section.name, selected_items.size());
-                            for (const auto &item : selected_items) {
-                                std::println("\t✅ {}", item);
+                            fmt::println("🔹 {} ({} items):", section.name, selected_items.size());
+                            for (const auto& item : selected_items) {
+                                fmt::println("\t✅ {}", item);
                                 total_selected++;
                             }
-                            std::println();
+                            fmt::print("\n");
                         }
                     }
 
                     if (total_selected == 0) {
-                        std::println("ℹ️  No options were selected.");
+                        fmt::println("ℹ️  No options were selected.");
                     } else {
-                        std::println("📈 Statistics:");
-                        std::println("\t• Total options selected: {}", total_selected);
-                        std::println("\t• Sections configured: {} of {}", total_sections_with_selections, secs.size());
+                        fmt::println("📈 Statistics:");
+                        fmt::println("\t• Total options selected: {}", total_selected);
+                        fmt::println("\t• Sections configured: {} of {}", total_sections_with_selections, secs.size());
                     }
-                    std::println("\n🚀 Your system is now configured!");
+                    fmt::println("\n🚀 Your system is now configured!");
 
-                    std::println("\nPress Enter to exit...");
+                    fmt::println("\nPress Enter to exit...");
+                    std::cin.clear();
+                    // std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
                     std::cin.get();
                 })
 
@@ -240,7 +242,7 @@ int main() {
         tui->run();
 
         return 0;
-    } catch (const std::exception &e) {
+    } catch (const std::exception& e) {
         std::cerr << "❌ Error: " << e.what() << std::endl;
         return 1;
     } catch (...) {

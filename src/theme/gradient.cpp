@@ -1,5 +1,5 @@
-#include <styles/colors.hpp>
-#include <styles/gradient.hpp>
+#include <theme/colors.hpp>
+#include <theme/gradient.hpp>
 
 namespace tui::extras {
     ///

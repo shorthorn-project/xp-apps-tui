@@ -1,10 +1,10 @@
-#include <navigation_tui.hpp>
-#include <print>
-#include <section_builder.hpp>
+#include <fmt/core.h>
+#include <rebuildTUI/rebuildtui.hpp>
+#include <rebuildTUI/ui/section_builder.hpp>
 
 // for custom layout borders
-#include <rebuildTUI/styles/colors.hpp>
-#include <rebuildTUI/styles/text.hpp>
+#include <rebuildTUI/theme/colors.hpp>
+#include <rebuildTUI/theme/text.hpp>
 
 using namespace tui;
 // using namespace tui;

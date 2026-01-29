@@ -1,6 +1,7 @@
-#include "terminal_utils.hpp"
+#include "core/terminal.hpp"
 // #include <print>
 #include <fmt/base.h>
+#include "core/input.hpp"
 
 #ifndef _WIN32
 #include <sys/ioctl.h>
@@ -243,7 +244,7 @@ namespace tui {
 #endif
     }
 
-    size_t TerminalUtils::get_visible_string_length(const std::string &string) {
+    size_t TerminalUtils::get_visible_string_length(const std::string& string) {
         size_t length = 0;
         auto in_escape_sequence = false;
 
@@ -320,227 +321,6 @@ namespace tui {
 #endif
     }
 
-    [[deprecated("unused, will be removed in 0.0.8")]]
-    void TerminalUtils::print_colored(std::string &text, Color color) {
-        set_color(color);
-        fmt::print("{}", text);
-        reset_formatting();
-        flush();
-    }
-
-    [[deprecated("unused, will be removed in 0.0.8")]]
-    void TerminalUtils::print_styled(std::string &text, Style style) {
-        set_style(style);
-        fmt::print("{}", text);
-        reset_formatting();
-        flush();
-    }
-
-    [[deprecated("unused, will be removed in 0.0.8")]]
-    void TerminalUtils::print_formatted(std::string &text, Color color, Style style) {
-        set_color(color);
-        set_style(style);
-        fmt::print("{}", text);
-        reset_formatting();
-        flush();
-    }
-
-    int TerminalUtils::get_key() {
-#ifdef _WIN32
-        return _getch();
-#else
-        return getchar();
-#endif
-    }
-
-    bool TerminalUtils::key_available() {
-#ifdef _WIN32
-        return _kbhit();
-#else
-        fd_set readfds;
-        timeval timeout{};
-
-        FD_ZERO(&readfds);
-        FD_SET(STDIN_FILENO, &readfds);
-
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 0;
-
-        const int result = select(STDIN_FILENO + 1, &readfds, nullptr, nullptr, &timeout);
-        return result > 0;
-#endif
-    }
-
-    // std::pair<TerminalUtils::Key, char> TerminalUtils::get_input() {
-    //   unsigned char buf[3] = {0};
-    //   int n = read(STDIN_FILENO, buf, 1);
-    //   if (n <= 0)
-    //     return {Key::UNKNOWN, 0};
-
-    //   if (buf[0] == 27) {
-    //     n = read(STDIN_FILENO, buf + 1, 2);
-    // #ifdef DEBUG_BUILD
-    //     std::cout << "n: " << n << std::endl;
-    // #endif
-    //     if (n == 1)
-    //       return {Key::ESCAPE, 0};
-    //     else if (buf[1] == '[') {
-    //       switch (buf[2]) {
-    //       case 'A':
-    //         return {Key::ARROW_UP, 0};
-    //       case 'B':
-    //         return {Key::ARROW_DOWN, 0};
-    //       case 'C':
-    //         return {Key::ARROW_RIGHT, 0};
-    //       case 'D':
-    //         return {Key::ARROW_LEFT, 0};
-    //       case 'H':
-    //         return {Key::HOME, 0};
-    //       case 'F':
-    //         return {Key::END, 0};
-    //       case '5':
-    //         read(STDIN_FILENO, buf, 1);
-    //         return {Key::PAGE_UP, 0};
-    //       case '6':
-    //         read(STDIN_FILENO, buf, 1);
-    //         return {Key::PAGE_DOWN, 0};
-    //       case '3':
-    //         read(STDIN_FILENO, buf, 1);
-    //         return {Key::DELETE, 0};
-    //       default:
-    //         return {Key::UNKNOWN, 0};
-    //       }
-    //     }
-    //     return {Key::UNKNOWN, 0};
-    //   }
-
-    //   switch (buf[0]) {
-    //   case '\n':
-    //   case '\r':
-    //     return {Key::ENTER, 0};
-    //   case ' ':
-    //     return {Key::SPACE, 0};
-    //   case '\t':
-    //     return {Key::TAB, 0};
-    //   case 8:
-    //   case 127:
-    //     return {Key::BACKSPACE, 0};
-    //   case 3:
-    //     return {Key::ESCAPE, 0};
-    //   default:
-    //     return {Key::UNKNOWN,
-    //             (buf[0] >= 32 && buf[0] <= 126) ? static_cast<char>(buf[0]) : 0};
-    //   }
-    // }
-
-    std::pair<TerminalUtils::Key, char> TerminalUtils::get_input() {
-        int ch = get_key();
-        if (ch == 27) {
-            const int ch1 = get_key();
-            if (ch1 == 27) {
-                return {Key::ESCAPE, 0};
-            }
-
-            if (ch1 == '[' || ch1 == 'O') {
-                switch (get_key()) {
-                case 'A':
-                    return {Key::ARROW_UP, 0};
-                case 'B':
-                    return {Key::ARROW_DOWN, 0};
-                case 'C':
-                    return {Key::ARROW_RIGHT, 0};
-                case 'D':
-                    return {Key::ARROW_LEFT, 0};
-                case 'H':
-                    return {Key::HOME, 0};
-                case 'F':
-                    return {Key::END, 0};
-                case '5':
-                    get_key();
-                    return {Key::PAGE_UP, 0};
-                case '6':
-                    get_key();
-                    return {Key::PAGE_DOWN, 0};
-                case '3':
-                    get_key();
-                    return {Key::KEY_DELETE, 0};
-                default:
-                    return {Key::UNKNOWN, 0};
-                }
-            }
-            return {Key::UNKNOWN, 0};
-        }
-
-        switch (ch) {
-        case '\n':
-        case '\r':
-            return {Key::ENTER, 0};
-        case ' ':
-            return {Key::SPACE, 0};
-        case '\t':
-            return {Key::TAB, 0};
-        case 8:
-        case 127:
-            return {Key::BACKSPACE, 0};
-        case 3:
-            return {Key::ESCAPE, 0};
-#ifdef _WIN32
-        case 224:
-            ch = get_key();
-            switch (ch) {
-            case 72:
-                return {Key::ARROW_UP, 0};
-            case 80:
-                return {Key::ARROW_DOWN, 0};
-            case 75:
-                return {Key::ARROW_LEFT, 0};
-            case 77:
-                return {Key::ARROW_RIGHT, 0};
-            case 71:
-                return {Key::HOME, 0};
-            case 79:
-                return {Key::END, 0};
-            case 73:
-                return {Key::PAGE_UP, 0};
-            case 81:
-                return {Key::PAGE_DOWN, 0};
-            case 83:
-                return {Key::KEY_DELETE, 0};
-            default:
-                return {Key::UNKNOWN, 0};
-            }
-#endif
-        default:
-            // if (ch >= 32 && ch <= 126)
-            //   return {Key::UNKNOWN, static_cast<char>(ch)};
-            // return {Key::UNKNOWN, 0};
-            return {Key::UNKNOWN, (ch >= 32 && ch <= 126) ? static_cast<char>(ch) : 0};
-        }
-    }
-
-    TerminalUtils::Key TerminalUtils::parse_escape_sequence() {
-#ifndef _WIN32
-        if (const int ch1 = get_key(); ch1 == '[') {
-            switch (get_key()) {
-            case 'A':
-                return Key::ARROW_UP;
-            case 'B':
-                return Key::ARROW_DOWN;
-            case 'C':
-                return Key::ARROW_RIGHT;
-            case 'D':
-                return Key::ARROW_LEFT;
-            case 'H':
-                return Key::HOME;
-            case 'F':
-                return Key::END;
-            default:
-                return Key::UNKNOWN;
-            }
-        }
-#endif
-        return Key::UNKNOWN;
-    }
 
     void TerminalUtils::draw_horizontal_line(const int row, const int start_col, const int length, const char ch) {
         move_cursor(row, start_col);
@@ -589,7 +369,7 @@ namespace tui {
         flush();
     }
 
-    void TerminalUtils::print_centered(const std::string &text, int width, int row) {
+    void TerminalUtils::print_centered(const std::string& text, int width, int row) {
         int padding = (width - static_cast<int>(text.length())) / 2;
         std::string padded_text = std::string(std::max(0, padding), ' ') + text;
 
@@ -601,7 +381,7 @@ namespace tui {
         flush();
     }
 
-    void TerminalUtils::print_at(int row, int col, const std::string &text) {
+    void TerminalUtils::print_at(int row, int col, const std::string& text) {
         move_cursor(row, col);
         fmt::print("{}", text);
         flush();
@@ -679,13 +459,13 @@ namespace tui {
         return {get_centered_row(content_height), get_centered_col(content_width)};
     }
 
-    void TerminalUtils::print_centered_at_row(int row, const std::string &text) {
+    void TerminalUtils::print_centered_at_row(int row, const std::string& text) {
         // auto [height, width] = get_terminal_size();
         int col = get_centered_col(static_cast<int>(text.length()));
         print_at(row, col, text);
     }
 
-    void TerminalUtils::print_centered_screen(const std::string &text) {
+    void TerminalUtils::print_centered_screen(const std::string& text) {
         // auto [height, width] = get_terminal_size();
         int row = get_centered_row(1);
         int col = get_centered_col(static_cast<int>(text.length()));
@@ -732,14 +512,20 @@ namespace tui {
 
         is_wt = std::getenv("WT_SESSION") ? true : false;
 #else
-        if (tcgetattr(STDIN_FILENO, &original_termios) == 0) {
-            termios_saved = true;
+        if (!termios_saved) {
+            if (tcgetattr(STDIN_FILENO, &original_termios) == 0) {
+                termios_saved = true;
+            }
+        }
+
+        if (termios_saved) {
             struct termios new_termios = original_termios;
             new_termios.c_lflag &= ~(ICANON | ECHO);
             new_termios.c_iflag &= ~ICRNL;
             new_termios.c_cc[VMIN] = 1;
             new_termios.c_cc[VTIME] = 0;
             tcsetattr(STDIN_FILENO, TCSANOW, &new_termios);
+            setvbuf(stdout, nullptr, _IONBF, 0);
         }
 #endif
     }
@@ -754,72 +540,26 @@ namespace tui {
         }
 #else
         if (termios_saved) {
+            tcflush(STDIN_FILENO, TCIFLUSH);
             tcsetattr(STDIN_FILENO, TCSANOW, &original_termios);
+            setvbuf(stdout, nullptr, _IOLBF, BUFSIZ); // Restore line buffering
             termios_saved = false;
         }
 #endif
     }
 
-    // TerminalManager implementations
-    std::optional<tui::TerminalUtils::KeyEvent> TerminalManager::get_key_input() {
-        if (!TerminalUtils::key_available()) {
+    std::optional<tui::KeyEvent> TerminalManager::get_key_input() {
+        if (!Input::key_available()) {
             return std::nullopt;
         }
 
-        auto [key, character] = TerminalUtils::get_input();
-
-        TerminalUtils::Key converted_key;
-
-        switch (key) {
-        case TerminalUtils::Key::ARROW_UP:
-            converted_key = TerminalUtils::Key::ARROW_UP;
-            break;
-        case TerminalUtils::Key::ARROW_DOWN:
-            converted_key = TerminalUtils::Key::ARROW_DOWN;
-            break;
-        case TerminalUtils::Key::ARROW_LEFT:
-            converted_key = TerminalUtils::Key::ARROW_LEFT;
-            break;
-        case TerminalUtils::Key::ARROW_RIGHT:
-            converted_key = TerminalUtils::Key::ARROW_RIGHT;
-            break;
-        case TerminalUtils::Key::ENTER:
-            converted_key = TerminalUtils::Key::ENTER;
-            break;
-        case TerminalUtils::Key::SPACE:
-            converted_key = TerminalUtils::Key::SPACE;
-            break;
-        case TerminalUtils::Key::ESCAPE:
-            converted_key = TerminalUtils::Key::ESCAPE;
-            break;
-        default:
-            if (character >= 'a' && character <= 'z') {
-                switch (character) {
-                case 'j':
-                    converted_key = TerminalUtils::Key::KEY_J;
-                    break;
-                case 'k':
-                    converted_key = TerminalUtils::Key::KEY_K;
-                    break;
-                case 'h':
-                    converted_key = TerminalUtils::Key::KEY_H;
-                    break;
-                case 'l':
-                    converted_key = TerminalUtils::Key::KEY_L;
-                    break;
-                default:
-                    converted_key = TerminalUtils::Key::NORMAL;
-                    break;
-                }
-            } else {
-                converted_key = TerminalUtils::Key::NORMAL;
-            }
-            break;
-        }
-
-        return TerminalUtils::KeyEvent(converted_key, character);
+        auto [key, character] = Input::get_input();
+        return tui::KeyEvent(key, character);
     }
 
-    bool TerminalManager::key_available() { return TerminalUtils::key_available(); }
+    bool TerminalManager::wait_for_input(int timeout_ms) { return Input::wait_for_input(timeout_ms); }
+
+    bool TerminalManager::key_available() { return Input::key_available(); }
+
 
 } // namespace tui

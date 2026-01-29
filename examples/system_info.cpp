@@ -1,7 +1,7 @@
-#include <format>
-#include <navigation_tui.hpp>
-#include <section_builder.hpp>
+#include <fmt/format.h>
+#include <rebuildtui.hpp>
 #include <sys/utsname.h>
+#include <ui/section_builder.hpp>
 #include <unistd.h>
 
 using namespace tui;
@@ -13,7 +13,7 @@ std::vector<SelectableItem> get_system_info() {
     char hostname[256];
     gethostname(hostname, sizeof(hostname));
 
-    return {{"OS", std::format("{} {}", info.sysname, info.release)},
+    return {{"OS", fmt::format("{} {}", info.sysname, info.release)},
             {"Hostname", hostname},
             {"Architecture", info.machine},
             {"CPU", "AMD Ryzen 9 5900X (24) @ 3.700GHz"},
@@ -26,7 +26,7 @@ int main() {
 
     NavigationBuilder()
         .add_section(info_section)
-        .text_show_help(false) // Hide help text
+        .text_show_help(false)     // Hide help text
         .text_show_counters(false) // Hide counters
 
         /*

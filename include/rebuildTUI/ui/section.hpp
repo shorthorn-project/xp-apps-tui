@@ -1,6 +1,6 @@
 #pragma once
 
-#include "selectable_item.hpp"
+#include "ui/item.hpp"
 
 #include <algorithm>
 
@@ -46,21 +46,21 @@ namespace tui {
         Section(std::string section_name, std::string section_desc, std::any data) :
             name(std::move(section_name)), description(std::move(section_desc)), user_data(std::move(data)) {}
 
-        void add_item(const SelectableItem &item) { items.push_back(item); }
-        void add_item(const std::string &item_name) { items.emplace_back(item_name); }
-        void add_item(const std::string &item_name, const std::string &item_desc) {
+        void add_item(const SelectableItem& item) { items.push_back(item); }
+        void add_item(const std::string& item_name) { items.emplace_back(item_name); }
+        void add_item(const std::string& item_name, const std::string& item_desc) {
             items.emplace_back(item_name, item_desc);
         }
-        void add_item(const std::string &item_name, const std::string &item_desc, int item_id,
-                      const std::any &item_data = {}) {
+        void add_item(const std::string& item_name, const std::string& item_desc, int item_id,
+                      const std::any& item_data = {}) {
             items.emplace_back(item_name, item_desc, item_id, item_data);
         }
 
-        void add_items(const std::vector<SelectableItem> &new_items) {
+        void add_items(const std::vector<SelectableItem>& new_items) {
             items.insert(items.end(), new_items.begin(), new_items.end());
         }
-        void add_items(const std::vector<std::string> &names) {
-            for (const auto &name : names) {
+        void add_items(const std::vector<std::string>& names) {
+            for (const auto& name : names) {
                 add_item(name);
             }
         }
@@ -69,7 +69,7 @@ namespace tui {
 
         [[nodiscard]] bool empty() const { return items.empty(); }
 
-        SelectableItem *get_item(const size_t index) {
+        SelectableItem* get_item(const size_t index) {
             if (index < items.size()) {
                 return &items[index];
             }
@@ -77,7 +77,7 @@ namespace tui {
             return nullptr;
         }
 
-        [[nodiscard]] const SelectableItem *get_item(const size_t index) const {
+        [[nodiscard]] const SelectableItem* get_item(const size_t index) const {
             if (index < items.size()) {
                 return &items[index];
             }
@@ -85,17 +85,17 @@ namespace tui {
             return nullptr;
         }
 
-        SelectableItem *get_item_by_name(const std::string &name) {
+        SelectableItem* get_item_by_name(const std::string& name) {
             const auto it = std::find_if(items.begin(), items.end(),
-                                         [&name](const SelectableItem &item) { return item.name == name; });
+                                         [&name](const SelectableItem& item) { return item.name == name; });
             return (it != items.end()) ? &(*it) : nullptr;
         }
-        SelectableItem *get_item_by_id(int id) {
+        SelectableItem* get_item_by_id(int id) {
 #if __cplusplus >= 202002L
-            const auto it = std::ranges::find_if(items, [id](const SelectableItem &item) { return item.id == id; });
+            const auto it = std::ranges::find_if(items, [id](const SelectableItem& item) { return item.id == id; });
 #else
             const auto it =
-                std::find_if(items.begin(), items.end(), [id](const SelectableItem &item) { return item.id == id; });
+                std::find_if(items.begin(), items.end(), [id](const SelectableItem& item) { return item.id == id; });
 #endif
 
             return (it != items.end()) ? &(*it) : nullptr;
@@ -125,15 +125,15 @@ namespace tui {
 
         [[nodiscard]] size_t get_selected_count() const {
 #if __cplusplus >= 202002L
-            return std::ranges::count_if(items, [](const SelectableItem &item) { return item.selected; });
+            return std::ranges::count_if(items, [](const SelectableItem& item) { return item.selected; });
 #else
-            return std::count_if(items.begin(), items.end(), [](const SelectableItem &item) { return item.selected; });
+            return std::count_if(items.begin(), items.end(), [](const SelectableItem& item) { return item.selected; });
 #endif
         }
 
         [[nodiscard]] std::vector<std::string> get_selected_names() const {
             std::vector<std::string> selected;
-            for (const auto &item : items) {
+            for (const auto& item : items) {
                 if (item.selected) {
                     selected.push_back(item.name);
                 }
@@ -143,7 +143,7 @@ namespace tui {
 
         [[nodiscard]] std::vector<SelectableItem> get_selected_items() const {
             std::vector<SelectableItem> selected;
-            for (const auto &item : items) {
+            for (const auto& item : items) {
                 if (item.selected) {
                     selected.push_back(item);
                 }
@@ -216,14 +216,14 @@ namespace tui {
             return false;
         }
 
-        bool remove_item_by_name(const std::string &name) {
+        bool remove_item_by_name(const std::string& name) {
             // TODO: finish
 #if __cplusplus >= 202002L
             const auto it =
-                std::ranges::find_if(items, [&name](const SelectableItem &item) { return item.name == name; });
+                std::ranges::find_if(items, [&name](const SelectableItem& item) { return item.name == name; });
 #else
             const auto it = std::find_if(items.begin(), items.end(),
-                                         [&name](const SelectableItem &item) { return item.name == name; });
+                                         [&name](const SelectableItem& item) { return item.name == name; });
 #endif
 
             if (it != items.end()) {
@@ -237,20 +237,20 @@ namespace tui {
 
         void sort_items_by_name() {
 #if __cplusplus >= 202002L
-            std::ranges::sort(items, [](const SelectableItem &a, const SelectableItem &b) { return a.name < b.name; });
+            std::ranges::sort(items, [](const SelectableItem& a, const SelectableItem& b) { return a.name < b.name; });
 #else
             std::sort(items.begin(), items.end(),
-                      [](const SelectableItem &a, const SelectableItem &b) { return a.name < b.name; });
+                      [](const SelectableItem& a, const SelectableItem& b) { return a.name < b.name; });
 #endif
         }
 
         void sort_items_by_selection(bool selected_first = true) {
 #if __cplusplus >= 202002L
-            std::ranges::sort(items, [selected_first](const SelectableItem &a, const SelectableItem &b) {
+            std::ranges::sort(items, [selected_first](const SelectableItem& a, const SelectableItem& b) {
                 return selected_first ? a.selected && !b.selected : !a.selected && b.selected;
             });
 #else
-            std::sort(items.begin(), items.end(), [selected_first](const SelectableItem &a, const SelectableItem &b) {
+            std::sort(items.begin(), items.end(), [selected_first](const SelectableItem& a, const SelectableItem& b) {
                 return selected_first ? a.selected && !b.selected : !a.selected && b.selected;
             });
 #endif
@@ -264,7 +264,7 @@ namespace tui {
         }
 
         template <typename T>
-        void set_user_data(const T &data) {
+        void set_user_data(const T& data) {
             user_data = data;
         }
 
@@ -289,9 +289,9 @@ namespace tui {
             }
         }
 
-        bool operator==(const Section &other) const { return name == other.name; }
-        bool operator!=(const Section &other) const { return !(*this == other); }
-        bool operator<(const Section &other) const { return name < other.name; }
+        bool operator==(const Section& other) const { return name == other.name; }
+        bool operator!=(const Section& other) const { return !(*this == other); }
+        bool operator<(const Section& other) const { return name < other.name; }
     };
 
 } // namespace tui

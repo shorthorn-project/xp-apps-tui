@@ -35,20 +35,22 @@ option(INSTALL_REBUILDTUI "Generate install targets" ON)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/rebuildTUI)
 
 set(LIB_SOURCES
-        src/terminal_utils.cpp
-        src/navigation_tui.cpp
-        src/styles/gradient.cpp
+        src/core/terminal.cpp
+        src/core/input.cpp
+        src/rebuildtui.cpp
+        src/theme/gradient.cpp
 )
 
 set(HEADERS
-        include/rebuildTUI/navigation_tui.hpp
-        include/rebuildTUI/section.hpp
-        include/rebuildTUI/section_builder.hpp
-        include/rebuildTUI/selectable_item.hpp
-        include/rebuildTUI/terminal_utils.hpp
-        include/rebuildTUI/styles/colors.hpp
-        include/rebuildTUI/styles/gradient.hpp
-        include/rebuildTUI/styles/text.hpp
+        include/rebuildTUI/rebuildtui.hpp
+        include/rebuildTUI/core/terminal.hpp
+        include/rebuildTUI/core/input.hpp
+        include/rebuildTUI/ui/section.hpp
+        include/rebuildTUI/ui/section_builder.hpp
+        include/rebuildTUI/ui/item.hpp
+        include/rebuildTUI/theme/colors.hpp
+        include/rebuildTUI/theme/gradient.hpp
+        include/rebuildTUI/theme/text.hpp
 )
 
 FetchContent_Declare(
@@ -117,7 +119,6 @@ if (BUILD_EXAMPLES)
                 target_sources(${EXAMPLE_NAME} PRIVATE ${LIB_SOURCES})
             endif ()
 
-            target_link_libraries(${EXAMPLE_NAME} PRIVATE stdc++exp)
 
             set_target_properties(${EXAMPLE_NAME} PROPERTIES
                     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
