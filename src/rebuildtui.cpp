@@ -875,9 +875,23 @@ namespace tui {
     void NavigationTUI::render_footer(const int term_height, const int left_padding, const int content_width,
                                       const SelectableItem* item = nullptr) {
         // footer (description)
-        // TODO: description rendering for main sections will be added in a future
-        auto description = (item) ? (item->description.empty() ? "No description provided" : item->description)
-                                  : std::string("Description (placeholder)");
+        std::string description;
+
+        if (item) {
+            description = item->description.empty() ? "No description provided" : item->description;
+        } else if (current_state_ == NavigationState::MAIN_MENU) {
+            const auto start_index = current_section_page_ * config_.layout.sections_per_page;
+            const size_t global_index = start_index + current_selection_index_;
+
+            if (global_index < sections_.size()) {
+                const auto& section = sections_[global_index];
+                description = section.description.empty() ? "No description provided" : section.description;
+            } else {
+                description = "No section selected";
+            }
+        } else {
+            description = "Description (placeholder)";
+        }
 
         auto [content, line_count] = center_string(description, content_width);
 

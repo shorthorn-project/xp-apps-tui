@@ -19,6 +19,7 @@ int main() {
                                    extras::set_style("Scheme", extras::TextMode::BOLD, extras::TextMode::UNDERLINE,
                                                      extras::TextMode::SLOW_BLINK)))
             .add_items(std::vector<std::string>{"Blue", "Green", "Red", "Purple"})
+            .description(fmt::format("{}", extras::set_style("This is a description", extras::TextMode::ITALIC)))
             .build();
 
     auto ui_section =

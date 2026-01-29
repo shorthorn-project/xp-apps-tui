@@ -217,7 +217,6 @@ namespace tui {
         }
 
         bool remove_item_by_name(const std::string& name) {
-            // TODO: finish
 #if __cplusplus >= 202002L
             const auto it =
                 std::ranges::find_if(items, [&name](const SelectableItem& item) { return item.name == name; });
