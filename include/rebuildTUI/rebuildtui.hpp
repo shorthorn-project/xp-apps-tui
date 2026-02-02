@@ -1,13 +1,12 @@
 #pragma once
 
-#include <functional>
+#include "core/input.hpp"
+#include "core/terminal.hpp"
+#include "theme/colors.hpp"
+#include "ui/section.hpp"
+
 #include <map>
 #include <memory>
-#include <string>
-#include <vector>
-#include "section.hpp"
-#include "styles.hpp"
-#include "terminal_utils.hpp"
 
 namespace tui {
     /**
@@ -24,18 +23,20 @@ namespace tui {
          * @brief Display theme configuration
          */
         struct Theme {
-            char selected_indicator = '*';        ///< Character for selected items
-            char unselected_indicator = ' ';      ///< Character for unselected items
-            std::string selected_prefix = "✓ ";   ///< Prefix for selected items
-            std::string unselected_prefix = "  "; ///< Prefix for unselected items
-            bool use_unicode = true;              ///< Whether to use Unicode characters
-            bool use_colors = true;               ///< Whether to use ANSI colors
-            bool gradient_enabled = false;        ///< Enable gradient support
-            bool gradient_randomize = false;      ///< Randomize gradients
-            tui_extras::BorderStyle border_style =
-                tui_extras::BorderStyle::ROUNDED; ///< Border style: "rounded", "sharp", "double" and "ascii"
-            tui_extras::AccentColor accent_color = tui_extras::AccentColor::CYAN; ///< Accent color for highlights
-            tui_extras::GradientPreset gradient_preset = tui_extras::GradientPreset::NONE(); ///< Gradient preset
+            char selected_indicator = '*';         ///< Character for selected items
+            char unselected_indicator = ' ';       ///< Character for unselected items
+            std::string selected_prefix = "✓ ";    ///< Prefix for selected items
+            std::string unselected_prefix = "  ";  ///< Prefix for unselected items
+            std::string highlighted_prefix = "> "; ///< Prefix for currently highlighted item
+            bool use_unicode = true;               ///< Whether to use Unicode characters
+            bool use_colors = true;                ///< Whether to use ANSI colors
+            bool gradient_enabled = false;         ///< Enable gradient support
+            bool gradient_randomize = false;       ///< Randomize gradients
+            extras::BorderStyle border_style =
+                extras::BorderStyle::ROUNDED; ///< Border style: "rounded", "sharp", "double" and "ascii"
+            extras::AccentColor accent_color = extras::AccentColor::CYAN;            ///< Accent color for highlights
+            extras::GradientPreset gradient_preset = extras::GradientPreset::NONE(); ///< Gradient preset
+            extras::ColorPalette palette;                                            ///< Full color palette
         };
 
         /**
@@ -90,12 +91,13 @@ namespace tui {
         /**
          * @brief Event callback types
          */
-        using SectionSelectedCallback = std::function<void(size_t section_index, const Section &section)>;
+        using SectionSelectedCallback = std::function<void(size_t section_index, const Section& section)>;
         using ItemToggledCallback = std::function<void(size_t section_index, size_t item_index, bool selected)>;
         using PageChangedCallback = std::function<void(int new_page, int total_pages)>;
         using StateChangedCallback = std::function<void(NavigationState old_state, NavigationState new_state)>;
-        using ExitCallback = std::function<void(const std::vector<Section> &sections)>;
+        using ExitCallback = std::function<void(const std::vector<Section>& sections)>;
         using CustomCommandCallback = std::function<bool(char key, NavigationState state)>;
+        using UpdateCallback = std::function<void()>;
 
     private:
         std::vector<Section> sections_;
@@ -119,6 +121,7 @@ namespace tui {
         StateChangedCallback on_state_changed_;
         ExitCallback on_exit_;
         CustomCommandCallback on_custom_command_;
+        UpdateCallback update_callback_;
 
         // Terminal management
         std::unique_ptr<TerminalManager> terminal_manager_;
@@ -128,31 +131,31 @@ namespace tui {
         explicit NavigationTUI(Config config);
         ~NavigationTUI() = default;
 
-        NavigationTUI(const NavigationTUI &) = delete;
-        NavigationTUI &operator=(const NavigationTUI &) = delete;
+        NavigationTUI(const NavigationTUI&) = delete;
+        NavigationTUI& operator=(const NavigationTUI&) = delete;
 
-        NavigationTUI(NavigationTUI &&) = default;
-        NavigationTUI &operator=(NavigationTUI &&) = default;
+        NavigationTUI(NavigationTUI&&) = default;
+        NavigationTUI& operator=(NavigationTUI&&) = default;
 
         /*
          * Section management
          */
-        void add_section(const Section &section);
-        void add_section(Section &&section);
-        void add_sections(const std::vector<Section> &sections);
-        void add_sections(std::vector<Section> &&sections);
+        void add_section(const Section& section);
+        void add_section(Section&& section);
+        void add_sections(const std::vector<Section>& sections);
+        void add_sections(std::vector<Section>&& sections);
 
         [[nodiscard]] size_t get_current_section_index() const;
-        Section *get_section(size_t index);
-        [[nodiscard]] const Section *get_section(size_t index) const;
+        Section* get_section(size_t index);
+        [[nodiscard]] const Section* get_section(size_t index) const;
 
-        Section *get_section_by_name(const std::string &name);
-        [[nodiscard]] const Section *get_section_by_name(const std::string &name) const;
+        Section* get_section_by_name(const std::string& name);
+        [[nodiscard]] const Section* get_section_by_name(const std::string& name) const;
 
         [[nodiscard]] size_t get_section_count() const;
 
         bool remove_section(size_t index);
-        bool remove_section_by_name(const std::string &name);
+        bool remove_section_by_name(const std::string& name);
 
         void clear_sections();
 
@@ -185,6 +188,12 @@ namespace tui {
         void set_state_changed_callback(StateChangedCallback callback);
         void set_exit_callback(ExitCallback callback);
         void set_custom_command_callback(CustomCommandCallback callback);
+        void set_update_callback(UpdateCallback callback);
+
+        /**
+         * @brief Force items to be refreshed/redrawn during the next update cycle
+         */
+        void refresh_items();
 
         /*
          * Navigation state
@@ -207,15 +216,15 @@ namespace tui {
         /**
          * @brief Update configuration
          */
-        void update_config(const Config &new_config);
-        void update_theme(const Theme &new_theme);
-        void update_layout(const Layout &new_layout);
-        void update_text_config(const TextConfig &new_text_config);
+        void update_config(const Config& new_config);
+        void update_theme(const Theme& new_theme);
+        void update_layout(const Layout& new_layout);
+        void update_text_config(const TextConfig& new_text_config);
 
         /**
          * @brief Get current configuration
          */
-        [[nodiscard]] const Config &get_config() const;
+        [[nodiscard]] const Config& get_config() const;
 
         /*
          * Other methods
@@ -226,7 +235,7 @@ namespace tui {
         /**
          * @brief Horizontal centering to text
          */
-        [[nodiscard]] std::string apply_centering(const std::string &text) const {
+        [[nodiscard]] std::string apply_centering(const std::string& text) const {
             if (!config_.layout.center_horizontally) {
                 return text;
             }
@@ -245,7 +254,7 @@ namespace tui {
         void initialize();
         void process_events();
 
-        void handle_input(TerminalUtils::Key key, char character);
+        void handle_input(Key key, char character);
         void draw_border(int top, int left, int width, int height) const;
         void render();
 
@@ -262,13 +271,13 @@ namespace tui {
         /**
          * @brief Render header with title
          */
-        void render_header(int term_width, int content_width, const std::string &title);
+        void render_header(int term_width, int content_width, const std::string& title);
 
         /**
          * @brief Render footer with help text and page info
          */
         // void render_footer(int term_height, int left_padding, int content_width) const;
-        void render_footer(int term_height, int left_padding, int content_width, const SelectableItem *item);
+        void render_footer(int term_height, int left_padding, int content_width, const SelectableItem* item);
 
         /**
          * @brief Handle input in section selection mode
@@ -278,7 +287,7 @@ namespace tui {
         /**
          * @brief Handle input in item selection mode
          */
-        void handle_item_input(TerminalUtils::Key key, char character);
+        void handle_item_input(Key key, char character);
 
         /**
          * @brief Navigation helpers
@@ -301,10 +310,10 @@ namespace tui {
          */
         // [[nodiscard]] std::vector<std::string> get_section_display_items() const;
         // [[nodiscard]] std::vector<std::string> get_current_item_display_items() const;
-        [[nodiscard]] std::string format_item_with_theme(const SelectableItem &item, bool is_selected) const;
+        [[nodiscard]] std::string format_item_with_theme(const SelectableItem& item, bool is_selected) const;
         [[nodiscard]] std::string get_page_info_string() const;
 
-        void apply_gradient_text(const std::string &text, int row, int col) const;
+        void apply_gradient_text(const std::string& text, int row, int col) const;
 
         /**
          * @brief Layout calculation
@@ -336,7 +345,7 @@ namespace tui {
         /*
          * @brief Center a string within a given width
          */
-        [[nodiscard]] FormattedText center_string(const std::string &text, int width) const;
+        [[nodiscard]] FormattedText center_string(const std::string& text, int width) const;
     };
 
     /**
@@ -353,6 +362,7 @@ namespace tui {
         NavigationTUI::StateChangedCallback state_changed_callback_;
         NavigationTUI::ExitCallback exit_callback_;
         NavigationTUI::CustomCommandCallback custom_command_callback_;
+        NavigationTUI::UpdateCallback update_callback_;
 
     public:
         /*
@@ -363,83 +373,87 @@ namespace tui {
         /**
          * @brief Theme configuration methods
          */
-        NavigationBuilder &theme_indicators(char selected, char unselected);
-        NavigationBuilder &theme_prefixes(const std::string &selected, const std::string &unselected);
-        NavigationBuilder &theme_unicode(bool enable);
-        NavigationBuilder &theme_colors(bool enable);
-        NavigationBuilder &theme_gradient_support(bool enable);
-        NavigationBuilder &theme_gradient_preset(const tui_extras::GradientPreset &preset);
-        NavigationBuilder &theme_gradient_randomize(bool enable);
-        NavigationBuilder &theme_border_style(const tui_extras::BorderStyle &style);
-        NavigationBuilder &theme_accent_color(const tui_extras::AccentColor &color);
+        NavigationBuilder& theme_indicators(char selected, char unselected);
+        NavigationBuilder& theme_prefixes(const std::string& selected, const std::string& unselected,
+                                          const std::string& highlighted = "> ");
+        NavigationBuilder& theme_unicode(bool enable);
+        NavigationBuilder& theme_colors(bool enable);
+        NavigationBuilder& theme_gradient_support(bool enable);
+        NavigationBuilder& theme_gradient_preset(const extras::GradientPreset& preset);
+        NavigationBuilder& theme_gradient_randomize(bool enable);
+        NavigationBuilder& theme_border_style(const extras::BorderStyle& style);
+        NavigationBuilder& theme_accent_color(const extras::AccentColor& color);
+        NavigationBuilder& theme_palette(const extras::ColorPalette& palette);
+        NavigationBuilder& theme_color(const std::string& element, const extras::Color& color);
 
         /**
          * @brief Layout configuration methods
          */
-        NavigationBuilder &layout_centering(bool horizontal, bool vertical);
-        NavigationBuilder &layout_content_width(int min_width, int max_width);
-        NavigationBuilder &layout_padding(int vertical_padding);
-        NavigationBuilder &layout_auto_resize(bool enable);
-        NavigationBuilder &layout_borders(bool show);
-        NavigationBuilder &layout_items_per_page(int count);
-        NavigationBuilder &layout_sections_per_page(int count);
-        NavigationBuilder &paginate_sections(bool paginate);
+        NavigationBuilder& layout_centering(bool horizontal, bool vertical);
+        NavigationBuilder& layout_content_width(int min_width, int max_width);
+        NavigationBuilder& layout_padding(int vertical_padding);
+        NavigationBuilder& layout_auto_resize(bool enable);
+        NavigationBuilder& layout_borders(bool show);
+        NavigationBuilder& layout_items_per_page(int count);
+        NavigationBuilder& layout_sections_per_page(int count);
+        NavigationBuilder& paginate_sections(bool paginate);
 
         /**
          * @brief Text configuration methods
          */
-        NavigationBuilder &text_titles(const std::string &section_title, const std::string &item_prefix);
-        NavigationBuilder &text_messages(const std::string &empty_message);
-        NavigationBuilder &text_help(const std::string &section_help, const std::string &item_help);
-        NavigationBuilder &text_show_help(bool show);
-        NavigationBuilder &text_show_pages(bool show);
-        NavigationBuilder &text_show_counters(bool show);
+        NavigationBuilder& text_titles(const std::string& section_title, const std::string& item_prefix);
+        NavigationBuilder& text_messages(const std::string& empty_message);
+        NavigationBuilder& text_help(const std::string& section_help, const std::string& item_help);
+        NavigationBuilder& text_show_help(bool show);
+        NavigationBuilder& text_show_pages(bool show);
+        NavigationBuilder& text_show_counters(bool show);
 
         /**
          * @brief Keyboard configuration methods
          */
-        NavigationBuilder &keys_quick_select(bool enable);
-        NavigationBuilder &keys_vim_style(bool enable);
-        NavigationBuilder &keys_custom_shortcut(char key, const std::string &description);
+        NavigationBuilder& keys_quick_select(bool enable);
+        NavigationBuilder& keys_vim_style(bool enable);
+        NavigationBuilder& keys_custom_shortcut(char key, const std::string& description);
 
         /**
          * @brief Section management methods
          */
-        NavigationBuilder &add_section(const Section &section);
-        NavigationBuilder &add_section(Section &&section);
-        NavigationBuilder &add_sections(const std::vector<Section> &sections);
+        NavigationBuilder& add_section(const Section& section);
+        NavigationBuilder& add_section(Section&& section);
+        NavigationBuilder& add_sections(const std::vector<Section>& sections);
 
         /**
          * @brief Callback configuration methods
          */
-        NavigationBuilder &on_section_selected(NavigationTUI::SectionSelectedCallback callback);
-        NavigationBuilder &on_item_toggled(NavigationTUI::ItemToggledCallback callback);
-        NavigationBuilder &on_page_changed(NavigationTUI::PageChangedCallback callback);
-        NavigationBuilder &on_state_changed(NavigationTUI::StateChangedCallback callback);
-        NavigationBuilder &on_exit(NavigationTUI::ExitCallback callback);
-        NavigationBuilder &on_custom_command(NavigationTUI::CustomCommandCallback callback);
+        NavigationBuilder& on_section_selected(NavigationTUI::SectionSelectedCallback callback);
+        NavigationBuilder& on_item_toggled(NavigationTUI::ItemToggledCallback callback);
+        NavigationBuilder& on_page_changed(NavigationTUI::PageChangedCallback callback);
+        NavigationBuilder& on_state_changed(NavigationTUI::StateChangedCallback callback);
+        NavigationBuilder& on_exit(NavigationTUI::ExitCallback callback);
+        NavigationBuilder& on_custom_command(NavigationTUI::CustomCommandCallback callback);
+        NavigationBuilder& on_update(NavigationTUI::UpdateCallback callback);
 
         /**
          * @brief Pre-configured themes
          */
-        NavigationBuilder &theme_minimal();
-        NavigationBuilder &theme_fancy();
-        NavigationBuilder &theme_retro();
-        NavigationBuilder &theme_modern();
+        NavigationBuilder& theme_minimal();
+        NavigationBuilder& theme_fancy();
+        NavigationBuilder& theme_retro();
+        NavigationBuilder& theme_modern();
 
         /**
          * @brief Pre-configured layouts
          */
-        NavigationBuilder &layout_compact();
-        NavigationBuilder &layout_comfortable();
-        NavigationBuilder &layout_fullscreen();
-        NavigationBuilder &layout_centered();
+        NavigationBuilder& layout_compact();
+        NavigationBuilder& layout_comfortable();
+        NavigationBuilder& layout_fullscreen();
+        NavigationBuilder& layout_centered();
 
         std::unique_ptr<NavigationTUI> build();
 
-        [[nodiscard]] const NavigationTUI::Config &get_config() const;
+        [[nodiscard]] const NavigationTUI::Config& get_config() const;
 
-        NavigationBuilder &reset();
+        NavigationBuilder& reset();
     };
 
 } // namespace tui

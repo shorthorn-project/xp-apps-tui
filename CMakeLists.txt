@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(rebuildTUI VERSION 0.0.6 LANGUAGES CXX)
+include(FetchContent)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -34,18 +35,30 @@ option(INSTALL_REBUILDTUI "Generate install targets" ON)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/rebuildTUI)
 
 set(LIB_SOURCES
-        src/terminal_utils.cpp
-        src/navigation_tui.cpp
+        src/core/terminal.cpp
+        src/core/input.cpp
+        src/rebuildtui.cpp
+        src/theme/gradient.cpp
 )
 
 set(HEADERS
-        include/rebuildTUI/navigation_tui.hpp
-        include/rebuildTUI/section.hpp
-        include/rebuildTUI/section_builder.hpp
-        include/rebuildTUI/selectable_item.hpp
-        include/rebuildTUI/terminal_utils.hpp
-        include/rebuildTUI/styles.hpp
+        include/rebuildTUI/rebuildtui.hpp
+        include/rebuildTUI/core/terminal.hpp
+        include/rebuildTUI/core/input.hpp
+        include/rebuildTUI/ui/section.hpp
+        include/rebuildTUI/ui/section_builder.hpp
+        include/rebuildTUI/ui/item.hpp
+        include/rebuildTUI/theme/colors.hpp
+        include/rebuildTUI/theme/gradient.hpp
+        include/rebuildTUI/theme/text.hpp
 )
+
+FetchContent_Declare(
+        fmt
+        GIT_REPOSITORY https://github.com/fmtlib/fmt
+        GIT_TAG 407c905e45ad75fc29bf0f9bb7c5c2fd3475976f
+)
+FetchContent_MakeAvailable(fmt)
 
 if (BUILD_LIBRARY)
     add_library(rebuildTUI STATIC ${LIB_SOURCES} ${HEADERS})
@@ -62,6 +75,8 @@ if (BUILD_LIBRARY)
             ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
             PUBLIC_HEADER "${HEADERS}"
     )
+
+    target_link_libraries(rebuildTUI PUBLIC fmt::fmt)
 
     message(STATUS "Building static library: rebuildTUI")
 endif ()
@@ -104,7 +119,6 @@ if (BUILD_EXAMPLES)
                 target_sources(${EXAMPLE_NAME} PRIVATE ${LIB_SOURCES})
             endif ()
 
-            target_link_libraries(${EXAMPLE_NAME} PRIVATE stdc++exp)
 
             set_target_properties(${EXAMPLE_NAME} PROPERTIES
                     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
@@ -121,7 +135,7 @@ if (INSTALL_REBUILDTUI)
     include(GNUInstallDirs)
     include(CMakePackageConfigHelpers)
 
-    install(TARGETS rebuildTUI
+    install(TARGETS rebuildTUI fmt
             EXPORT rebuildTUITargets
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -132,6 +146,12 @@ if (INSTALL_REBUILDTUI)
     install(DIRECTORY include/rebuildTUI
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rebuildTUI
             FILES_MATCHING PATTERN "*.hpp"
+    )
+
+    get_target_property(FMT_SOURCE_DIR fmt SOURCE_DIR)
+    install(DIRECTORY ${FMT_SOURCE_DIR}/include/fmt
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+            FILES_MATCHING PATTERN "*.h"
     )
 
     if (BUILD_EXAMPLES)

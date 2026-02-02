@@ -1,0 +1,79 @@
+#pragma once
+
+#include <cstdint>
+#include <vector>
+
+
+namespace tui::extras {
+    using color = std::tuple<uint8_t, uint8_t, uint8_t>;
+    using v_styles = std::vector<color>;
+
+    class GradientPreset {
+    public:
+        enum class PresetType;
+
+        // Basic presets
+        static GradientPreset NONE();
+        static GradientPreset WARM_TO_COLD();
+        static GradientPreset RED_TO_GREEN();
+        static GradientPreset BLUE_TO_PURPLE();
+        static GradientPreset SUNSET();
+        static GradientPreset OCEAN();
+        static GradientPreset FOREST();
+        static GradientPreset FIRE();
+        static GradientPreset RAINBOW();
+
+        // Custom presets
+        static GradientPreset CUSTOM(uint8_t r, uint8_t g, uint8_t b);
+        static GradientPreset CUSTOM(const v_styles& colors);
+
+        enum class PresetType {
+            NONE,
+            RED_TO_GREEN,
+            BLUE_TO_PURPLE,
+            WARM_TO_COLD, // From orange to cyan
+            SUNSET,       // Red -> orange -> violet
+            OCEAN,        // Blue to turquoise
+            FOREST,       // Green to yellow-green
+            FIRE,         // Red to yellow
+            RAINBOW,      // Rainbow
+            CUSTOM,       // Custom
+        };
+
+        [[nodiscard]] PresetType type() const;
+        [[nodiscard]] const v_styles& custom_colors() const;
+
+        bool operator==(const GradientPreset& other) const;
+        bool operator!=(const GradientPreset& none) const;
+
+    private:
+        explicit GradientPreset(const PresetType type) : type_(type) {}
+        explicit GradientPreset(const PresetType type, v_styles custom_colors) :
+            type_(type), custom_colors_(std::move(custom_colors)) {};
+
+        PresetType type_;
+        v_styles custom_colors_;
+    };
+
+
+    class GradientColor {
+    public:
+        explicit GradientColor() : r_(0), g_(0), b_(0) {}
+        explicit GradientColor(const uint8_t r, const uint8_t g, const uint8_t b) : r_(r), g_(g), b_(b) {}
+
+        void set_rgb(const uint8_t r, const uint8_t g, const uint8_t b) {
+            this->r_ = r;
+            this->g_ = g;
+            this->b_ = b;
+        }
+
+        static std::vector<GradientColor> from_preset(const GradientPreset& preset, int steps);
+
+        [[nodiscard]] color get_color() const { return std::make_tuple(this->r_, this->g_, this->b_); };
+
+    private:
+        uint8_t r_;
+        uint8_t g_;
+        uint8_t b_;
+    };
+} // namespace tui::extras

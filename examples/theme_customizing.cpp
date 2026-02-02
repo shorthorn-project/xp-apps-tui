@@ -1,12 +1,13 @@
-#include <navigation_tui.hpp>
-#include <print>
-#include <section_builder.hpp>
+#include <fmt/core.h>
+#include <rebuildTUI/rebuildtui.hpp>
+#include <rebuildTUI/ui/section_builder.hpp>
 
 // for custom layout borders
-#include <styles.hpp>
+#include <rebuildTUI/theme/colors.hpp>
+#include <rebuildTUI/theme/text.hpp>
 
 using namespace tui;
-using namespace tui_extras;
+// using namespace tui;
 
 int main() {
     auto theme_section = SectionBuilder("Theme Settings")
@@ -14,33 +15,39 @@ int main() {
                              .build();
 
     auto color_section =
-        SectionBuilder("Color Scheme").add_items(std::vector<std::string>{"Blue", "Green", "Red", "Purple"}).build();
+        SectionBuilder(fmt::format("Color {}",
+                                   extras::set_style("Scheme", extras::TextMode::BOLD, extras::TextMode::UNDERLINE,
+                                                     extras::TextMode::SLOW_BLINK)))
+            .add_items(std::vector<std::string>{"Blue", "Green", "Red", "Purple"})
+            .description(fmt::format("{}", extras::set_style("This is a description", extras::TextMode::ITALIC)))
+            .build();
 
-    auto ui_section = SectionBuilder("UI Settings").add_item("Enable Animations").add_item("Show Icons").build();
+    auto ui_section =
+        SectionBuilder("UI Settings").add_item("Enable Animations", "testing\n\n\n1337").add_item("Show Icons").build();
 
     NavigationBuilder()
         .add_sections({theme_section, color_section, ui_section})
         .on_item_toggled([](const size_t section_idx, const size_t item_idx, const bool selected) {
             if (section_idx == 0 && item_idx == 0 && selected) {
-                std::println("Applying dark theme...");
+                fmt::println("Applying dark theme...");
             }
         })
 
         // Theme and styling
-        // .theme_fancy()   // ✓  / ○
+        // .theme_fancy() // ✓  / ○
         // .theme_minimal() // * / nothing
         // .theme_modern()  // ● / "○
-        .theme_indicators('+', '-')     // Custom indicators
-        .theme_prefixes("[X] ", "[ ] ") // Custom prefixes
+        .theme_indicators('+', '-')            // Custom indicators
+        .theme_prefixes("[X] ", "[ ] ", "-> ") // Custom prefixes with highlight indicator
 
         // Set custom layout borders
         .layout_borders(true)
-        .theme_border_style(BorderStyle::ROUNDED)
+        .theme_border_style(extras::BorderStyle::ROUNDED)
 
         // currently placeholder
         // I'll implement in the future
         .theme_colors(true)
-        .theme_accent_color(AccentColor::CYAN)
+        .theme_accent_color(extras::AccentColor::CYAN)
 
         .layout_centering(true, // horizontal layout
                           true) // vertical layout
@@ -55,7 +62,7 @@ int main() {
         /*
          *  Available presets
          *
-         *  NOTE: v_styles => std::vector<std::tuple<uint8_t, uint8_t, uint8_t>>
+         *  NOTE: extras::v_styles => std::vector<std::tuple<uint8_t, uint8_t, uint8_t>>
          *
          *  GradientPreset::RAINBOW
          *  GradientPreset::BLUE_TO_PURPLE
@@ -68,10 +75,10 @@ int main() {
          *  GradientPreset::CUSTOM(v_styles{r, g, b})   - custom colors (vector of rgb styles)
          *  GradientPreset::NONE                        - None (by default)
          */
-        .theme_gradient_preset(GradientPreset::CUSTOM(v_styles{{255, 0, 0}, // red
-                                                               {0, 255, 0}, // green
-                                                               {0, 0, 255}} // blue
-                                                      ))
+        .theme_gradient_preset(extras::GradientPreset::CUSTOM(extras::v_styles{{255, 0, 0}, // red
+                                                                               {0, 255, 0}, // green
+                                                                               {0, 0, 255}} // blue
+                                                              ))
 
         // layout padding (you can enable if you want)
         // .layout_padding(3)

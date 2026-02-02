@@ -1,13 +1,26 @@
-#include "navigation_tui.hpp"
-#include "styles.hpp"
-#include "terminal_utils.hpp"
+#include "rebuildtui.hpp"
 
+
+#include "core/terminal.hpp"
+#include "theme/colors.hpp"
+
+#include <fmt/core.h>
 #include <random>
 #include <sstream>
-#include <thread>
 #include <utility>
 
 namespace tui {
+
+    // get ANSI sequence from Color
+    static std::string get_color_sequence(const extras::Color& color) {
+        if (color.type == extras::Color::Type::ANSI) {
+            return "\033[" + std::to_string(static_cast<int>(color.ansi_color)) + "m";
+        } else if (color.type == extras::Color::Type::RGB) {
+            return "\033[38;2;" + std::to_string(color.r) + ";" + std::to_string(color.g) + ";" +
+                std::to_string(color.b) + "m";
+        }
+        return "";
+    }
     NavigationTUI::NavigationTUI() :
         current_state_(NavigationState::MAIN_MENU), current_section_index_(0), current_selection_index_(0),
         current_page_(0), current_section_page_{0}, running_(false), needs_redraw_(true), previous_width_{0},
@@ -23,36 +36,47 @@ namespace tui {
         terminal_manager_ = std::make_unique<TerminalManager>();
     }
 
-    void NavigationTUI::add_section(const Section &section) { sections_.push_back(section); }
+    void NavigationTUI::add_section(const Section& section) { sections_.push_back(section); }
 
-    void NavigationTUI::add_section(Section &&section) { sections_.push_back(std::move(section)); }
+    void NavigationTUI::add_section(Section&& section) { sections_.push_back(std::move(section)); }
 
-    void NavigationTUI::add_sections(const std::vector<Section> &sections) {
+    void NavigationTUI::add_sections(const std::vector<Section>& sections) {
         sections_.insert(sections_.end(), sections.begin(), sections.end());
     }
 
-    void NavigationTUI::add_sections(std::vector<Section> &&sections) {
+    void NavigationTUI::add_sections(std::vector<Section>&& sections) {
         sections_.insert(sections_.end(), std::make_move_iterator(sections.begin()),
                          std::make_move_iterator(sections.end()));
     }
 
-    Section *NavigationTUI::get_section(size_t index) {
+    Section* NavigationTUI::get_section(size_t index) {
         return (index < sections_.size()) ? &sections_[index] : nullptr;
     }
 
-    const Section *NavigationTUI::get_section(size_t index) const {
+    const Section* NavigationTUI::get_section(size_t index) const {
         return (index < sections_.size()) ? &sections_[index] : nullptr;
     }
 
-    Section *NavigationTUI::get_section_by_name(const std::string &name) {
+    Section* NavigationTUI::get_section_by_name(const std::string& name) {
+#if __cplusplus >= 202002L
         const auto it =
-            std::ranges::find_if(sections_, [&name](const Section &section) { return section.name == name; });
+            std::ranges::find_if(sections_, [&name](const Section& section) { return section.name == name; });
+#else
+        const auto it = std::find_if(sections_.begin(), sections_.end(),
+                                     [&name](const Section& section) { return section.name == name; });
+#endif
         return (it != sections_.end()) ? &(*it) : nullptr;
     }
 
-    const Section *NavigationTUI::get_section_by_name(const std::string &name) const {
+    const Section* NavigationTUI::get_section_by_name(const std::string& name) const {
+#if __cplusplus >= 202002L
         const auto it =
-            std::ranges::find_if(sections_, [&name](const Section &section) { return section.name == name; });
+            std::ranges::find_if(sections_, [&name](const Section& section) { return section.name == name; });
+#else
+        const auto it = std::find_if(sections_.begin(), sections_.end(),
+                                     [&name](const Section& section) { return section.name == name; });
+#endif
+
         return (it != sections_.end()) ? &(*it) : nullptr;
     }
 
@@ -69,9 +93,15 @@ namespace tui {
         return false;
     }
 
-    bool NavigationTUI::remove_section_by_name(const std::string &name) {
+    bool NavigationTUI::remove_section_by_name(const std::string& name) {
+#if __cplusplus >= 202002L
         const auto it =
-            std::ranges::find_if(sections_, [&name](const Section &section) { return section.name == name; });
+            std::ranges::find_if(sections_, [&name](const Section& section) { return section.name == name; });
+#else
+        const auto it = std::find_if(sections_.begin(), sections_.end(),
+                                     [&name](const Section& section) { return section.name == name; });
+#endif
+
         if (it != sections_.end()) {
             sections_.erase(it);
             validate_indices();
@@ -110,9 +140,13 @@ namespace tui {
         on_custom_command_ = std::move(callback);
     }
 
+    void NavigationTUI::set_update_callback(UpdateCallback callback) { update_callback_ = std::move(callback); }
+
+    void NavigationTUI::refresh_items() { needs_redraw_ = true; }
+
     void NavigationTUI::run() {
         if (sections_.empty()) {
-            std::cout << "No sections available. Please add sections before running." << std::endl;
+            fmt::println("No sections available. Please add sections before running.");
             return;
         }
 
@@ -120,11 +154,20 @@ namespace tui {
         running_ = true;
 
         while (running_) {
-            render();
-            process_events();
+            if (needs_redraw_) {
+                render();
+                needs_redraw_ = false;
+            }
 
-            // FIXME: is there any fix to way this out?
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            if (update_callback_) {
+                update_callback_();
+            }
+
+            int timeout_ms = (update_callback_ != nullptr) ? 50 : 100;
+
+            if (TerminalManager::wait_for_input(timeout_ms)) {
+                process_events();
+            }
         }
 
         terminal_manager_->restore_terminal();
@@ -136,7 +179,8 @@ namespace tui {
 
     void NavigationTUI::exit() {
         running_ = false;
-        std::cin.clear();
+        // std::fflush(stdin);
+        // std::cin.clear();
     }
 
     NavigationTUI::NavigationState NavigationTUI::get_current_state() const { return current_state_; }
@@ -150,8 +194,8 @@ namespace tui {
     void NavigationTUI::return_to_sections() {
         if (current_state_ != NavigationState::MAIN_MENU) {
             change_state(NavigationState::MAIN_MENU);
-            current_selection_index_ = current_section_index_;
-            current_page_ = 0;
+            current_selection_index_ = static_cast<int>(current_section_index_) % config_.layout.sections_per_page;
+            current_section_page_ = static_cast<int>(current_section_index_) / config_.layout.sections_per_page;
             needs_redraw_ = true;
         }
     }
@@ -163,7 +207,7 @@ namespace tui {
             current_page_ = 0;
             change_state(NavigationState::ITEM_SELECTION);
 
-            const auto &section = sections_[section_index];
+            const auto& section = sections_[section_index];
             section.trigger_enter();
 
             if (on_section_selected_) {
@@ -184,7 +228,6 @@ namespace tui {
         if (const int total_pages = calculate_total_pages();
             page >= 0 && page < total_pages && page != current_section_page_) {
             current_section_page_ = page;
-            current_selection_index_ = 0;
             needs_redraw_ = true;
         }
     }
@@ -192,7 +235,6 @@ namespace tui {
     void NavigationTUI::go_to_page(const int page) {
         if (const int total_pages = calculate_total_pages(); page >= 0 && page < total_pages && page != current_page_) {
             current_page_ = page;
-            current_selection_index_ = 0;
 
             if (on_page_changed_) {
                 on_page_changed_(page, total_pages);
@@ -221,7 +263,7 @@ namespace tui {
     std::map<std::string, std::vector<std::string>> NavigationTUI::get_all_selections() const {
         std::map<std::string, std::vector<std::string>> selections;
 
-        for (const auto &section : sections_) {
+        for (const auto& section : sections_) {
             if (auto selected_items = section.get_selected_names(); !selected_items.empty()) {
                 selections[section.name] = selected_items;
             }
@@ -236,7 +278,7 @@ namespace tui {
     }
 
     void NavigationTUI::clear_all_selections() {
-        for (auto &section : sections_) {
+        for (auto& section : sections_) {
             section.clear_selections();
         }
         needs_redraw_ = true;
@@ -249,27 +291,27 @@ namespace tui {
         }
     }
 
-    void NavigationTUI::update_config(const Config &new_config) {
+    void NavigationTUI::update_config(const Config& new_config) {
         config_ = new_config;
         needs_redraw_ = true;
     }
 
-    void NavigationTUI::update_theme(const Theme &new_theme) {
+    void NavigationTUI::update_theme(const Theme& new_theme) {
         config_.theme = new_theme;
         needs_redraw_ = true;
     }
 
-    void NavigationTUI::update_layout(const Layout &new_layout) {
+    void NavigationTUI::update_layout(const Layout& new_layout) {
         config_.layout = new_layout;
         needs_redraw_ = true;
     }
 
-    void NavigationTUI::update_text_config(const TextConfig &new_text_config) {
+    void NavigationTUI::update_text_config(const TextConfig& new_text_config) {
         config_.text = new_text_config;
         needs_redraw_ = true;
     }
 
-    const NavigationTUI::Config &NavigationTUI::get_config() const { return config_; }
+    const NavigationTUI::Config& NavigationTUI::get_config() const { return config_; }
 
     void NavigationTUI::initialize() {
         terminal_manager_->setup_terminal();
@@ -290,12 +332,13 @@ namespace tui {
             needs_redraw_ = true;
         }
 
-        if (const auto key_event = TerminalManager::get_key_input(); key_event.has_value()) {
+        // Process all pending input
+        while (auto key_event = TerminalManager::get_key_input()) {
             handle_input(key_event->key, key_event->character);
         }
     }
 
-    void NavigationTUI::handle_input(const TerminalUtils::Key key, const char character) {
+    void NavigationTUI::handle_input(const Key key, const char character) {
         // Handle global commands first
         if (std::tolower(character) == 'q') {
             exit();
@@ -311,33 +354,33 @@ namespace tui {
         handle_item_input(key, character);
     }
 
-    void NavigationTUI::handle_item_input(const TerminalUtils::Key key, const char character) {
+    void NavigationTUI::handle_item_input(const Key key, const char character) {
         switch (key) {
-        case TerminalUtils::Key::ESCAPE:
+        case Key::ESCAPE:
             return_to_sections();
             break;
 
-        case TerminalUtils::Key::ARROW_UP:
+        case Key::ARROW_UP:
             move_selection_up();
             break;
 
-        case TerminalUtils::Key::ARROW_DOWN:
+        case Key::ARROW_DOWN:
             move_selection_down();
             break;
 
-        case TerminalUtils::Key::ARROW_LEFT:
+        case Key::ARROW_LEFT:
             previous_page();
             break;
 
-        case TerminalUtils::Key::ARROW_RIGHT:
+        case Key::ARROW_RIGHT:
             next_page();
             break;
 
-        case TerminalUtils::Key::SPACE:
+        case Key::SPACE:
             toggle_current_item();
             break;
 
-        case TerminalUtils::Key::ENTER:
+        case Key::ENTER:
             if (current_state_ == NavigationState::ITEM_SELECTION) {
                 return_to_sections();
             } else if (current_state_ == NavigationState::MAIN_MENU) {
@@ -345,7 +388,7 @@ namespace tui {
             }
             break;
 
-        case TerminalUtils::Key::NORMAL:
+        case Key::NORMAL:
             if (current_state_ == NavigationState::ITEM_SELECTION) {
                 if (character == 'b') {
                     return_to_sections();
@@ -403,10 +446,12 @@ namespace tui {
 
     void NavigationTUI::move_selection_down() {
         if (current_state_ == NavigationState::MAIN_MENU) {
-            if (const int items_on_page = get_sections_on_current_page();
-                static_cast<int>(current_selection_index_) < items_on_page - 1) {
+            const int items_on_page = get_sections_on_current_page();
+            const int total_pages = calculate_total_pages();
+
+            if (static_cast<int>(current_selection_index_) < items_on_page - 1) {
                 current_selection_index_++;
-            } else if (current_section_page_ < calculate_total_pages() - 1) {
+            } else if (current_section_page_ < total_pages - 1) {
                 go_to_section_page(current_section_page_ + 1);
                 current_selection_index_ = 0;
             }
@@ -427,8 +472,11 @@ namespace tui {
     }
 
     void NavigationTUI::select_current_item() {
-        if (current_state_ == NavigationState::MAIN_MENU && current_selection_index_ < sections_.size()) {
-            enter_section(current_selection_index_);
+        if (current_state_ == NavigationState::MAIN_MENU) {
+            size_t global_index = current_section_page_ * config_.layout.sections_per_page + current_selection_index_;
+            if (global_index < sections_.size()) {
+                enter_section(global_index);
+            }
         } else {
             toggle_current_item();
         }
@@ -441,7 +489,7 @@ namespace tui {
             if (const size_t global_index = start + current_selection_index_;
                 sections_[current_section_index_].toggle_item(global_index)) {
                 if (on_item_toggled_) {
-                    if (const auto *item = sections_[current_section_index_].get_item(global_index)) {
+                    if (const auto* item = sections_[current_section_index_].get_item(global_index)) {
                         on_item_toggled_(current_section_index_, global_index, item->selected);
                     }
                 }
@@ -506,7 +554,7 @@ namespace tui {
         std::string top_left, top_right, bottom_left, bottom_right, horizontal, vertical;
 
         switch (config_.theme.border_style) {
-        case tui_extras::BorderStyle::ROUNDED:
+        case extras::BorderStyle::ROUNDED:
             top_left = "╭";
             top_right = "╮";
             bottom_left = "╰";
@@ -514,7 +562,7 @@ namespace tui {
             horizontal = "─";
             vertical = "│";
             break;
-        case tui_extras::BorderStyle::DOUBLE:
+        case extras::BorderStyle::DOUBLE:
             top_left = "╔";
             top_right = "╗";
             bottom_left = "╚";
@@ -522,7 +570,7 @@ namespace tui {
             horizontal = "═";
             vertical = "║";
             break;
-        case tui_extras::BorderStyle::SHARP:
+        case extras::BorderStyle::SHARP:
             top_left = "┌";
             top_right = "┐";
             bottom_left = "└";
@@ -530,7 +578,7 @@ namespace tui {
             horizontal = "─";
             vertical = "│";
             break;
-        case tui_extras::BorderStyle::ASCII:
+        case extras::BorderStyle::ASCII:
         default:
             top_left = "+";
             top_right = "+";
@@ -541,26 +589,32 @@ namespace tui {
             break;
         }
 
-        TerminalUtils::move_cursor(top, left);
-        std::cout << top_left;
-        for (auto i = 0; i < width - 2; ++i) {
-            std::cout << horizontal;
+        if (config_.theme.use_colors) {
+            fmt::print("{}", get_color_sequence(config_.theme.palette.border));
         }
-        std::cout << top_right;
+
+        TerminalUtils::move_cursor(top, left);
+        fmt::print("{}", top_left);
+        for (auto i = 0; i < width - 2; ++i) {
+            fmt::print("{}", horizontal);
+        }
+        fmt::print("{}", top_right);
 
         for (int y = top + 1; y < top + height - 1; ++y) {
             TerminalUtils::move_cursor(y, left);
-            std::cout << vertical;
+            fmt::print("{}", vertical);
             TerminalUtils::move_cursor(y, left + width - 1);
-            std::cout << vertical;
+            fmt::print("{}", vertical);
         }
 
         TerminalUtils::move_cursor(top + height - 1, left);
-        std::cout << bottom_left;
+        fmt::print("{}", bottom_left);
         for (int i = 0; i < width - 2; ++i) {
-            std::cout << horizontal;
+            fmt::print("{}", horizontal);
         }
-        std::cout << bottom_right;
+        fmt::print("{}", bottom_right);
+
+        TerminalUtils::reset_formatting();
     }
 
     void NavigationTUI::render() {
@@ -616,9 +670,9 @@ namespace tui {
             render_item_selection(start_row, left_padding, content_width);
         }
 
-        const SelectableItem *current_item = nullptr;
+        const SelectableItem* current_item = nullptr;
         if (current_state_ == NavigationState::ITEM_SELECTION && current_section_index_ < sections_.size()) {
-            const auto &section = sections_[current_section_index_];
+            const auto& section = sections_[current_section_index_];
 
             if (auto [first, second] = get_current_page_bounds(); current_selection_index_ < (second - first)) {
                 const size_t global_index = first + current_selection_index_;
@@ -632,35 +686,63 @@ namespace tui {
         needs_redraw_ = false;
     }
 
-    void NavigationTUI::render_header(int /*term_width*/, const int content_width, const std::string &title) {
+    void NavigationTUI::render_header(int /*term_width*/, const int content_width, const std::string& title) {
         const std::string centered_title = center_string(title, content_width).content;
         const std::string separator = center_string(std::string(title.length(), '='), content_width).content;
 
-        std::cout << centered_title << "\n";
-        std::cout << separator << "\n\n";
+        if (config_.theme.use_colors) {
+            fmt::print("{}", get_color_sequence(config_.theme.palette.header_text) + centered_title);
+            TerminalUtils::reset_formatting();
+            fmt::println(""); // Newline from println
+
+            fmt::print("{}", get_color_sequence(config_.theme.palette.header_border) + separator);
+            TerminalUtils::reset_formatting();
+            fmt::println("");
+        } else {
+            fmt::println("{}", centered_title);
+            fmt::println("{}", separator);
+        }
     }
 
-    void NavigationTUI::apply_gradient_text(const std::string &text, const int row, const int col) const {
-        if (!config_.theme.gradient_enabled) {
+    void NavigationTUI::apply_gradient_text(const std::string& text, const int row, const int col) const {
+        if (!config_.theme.gradient_enabled || text.empty()) {
             return;
         }
 
-        const auto steps = static_cast<int>(text.length());
-        if (steps == 0) {
+        const size_t visible_len = TerminalUtils::get_visible_string_length(text);
+        if (visible_len == 0) {
+            TerminalUtils::move_cursor(row, col);
+            fmt::print("{}", text);
             return;
         }
 
-        auto gradient = tui_extras::GradientColor::from_preset(config_.theme.gradient_preset, steps);
-
+        auto gradient =
+            extras::GradientColor::from_preset(config_.theme.gradient_preset, static_cast<int>(visible_len));
         if (config_.theme.gradient_randomize) {
+#if __cplusplus >= 202002L
             std::ranges::shuffle(gradient, std::mt19937(std::random_device()()));
+#else
+            std::shuffle(gradient.begin(), gradient.end(), std::mt19937(std::random_device()()));
+#endif
         }
 
         TerminalUtils::move_cursor(row, col);
 
-        for (auto i = 0; i < steps; i++) {
-            TerminalUtils::set_color_rgb(gradient[i]);
-            std::cout << text[i];
+        size_t gradient_idx = 0;
+        for (size_t i = 0; i < text.length(); ++i) {
+            if (text[i] == '\033') {
+                if (const size_t end_pos = text.find('m', i); end_pos != std::string::npos) {
+                    fmt::print("{}", text.substr(i, end_pos - i + 1));
+                    i = end_pos;
+                } else {
+                    fmt::print("{}", text[i]);
+                }
+            } else {
+                if (gradient_idx < gradient.size()) {
+                    TerminalUtils::set_color_rgb(gradient[gradient_idx++]);
+                }
+                fmt::print("{}", text[i]);
+            }
         }
 
         TerminalUtils::reset_formatting();
@@ -670,11 +752,12 @@ namespace tui {
     void NavigationTUI::render_section_selection(const int start_row, const int left_padding, const int content_width) {
         // Header
         TerminalUtils::move_cursor(start_row, left_padding);
-        std::cout << center_string(config_.text.section_selection_title, content_width).content;
+        fmt::print("{}", center_string(config_.text.section_selection_title, content_width).content);
 
         TerminalUtils::move_cursor(start_row + 1, left_padding);
-        std::cout
-            << center_string(std::string(config_.text.section_selection_title.length(), '='), content_width).content;
+        fmt::print(
+            "{}",
+            center_string(std::string(config_.text.section_selection_title.length(), '='), content_width).content);
 
         // Sections
         const auto start_index = current_section_page_ * config_.layout.sections_per_page;
@@ -683,39 +766,58 @@ namespace tui {
         const auto items_on_page = end_index - start_index;
         const int items_start_row = start_row + 2 + config_.layout.vertical_padding;
 
+        const size_t highlight_v_w = TerminalUtils::get_visible_string_length(config_.theme.highlighted_prefix);
+
+        struct SectionItem {
+            std::string base_text;
+            bool is_selected;
+            size_t v_width;
+        };
+        std::vector<SectionItem> items_to_render;
+        size_t max_v_width = 0;
+
         for (auto i = 0; i < items_on_page; ++i) {
             const size_t global_index = start_index + i;
+            const bool is_selected = i == static_cast<int>(current_selection_index_);
 
-            std::string display_text = std::format("{}. {}", global_index + 1, sections_[global_index].name);
+            std::string display_text = fmt::format("{}. {}", global_index + 1, sections_[global_index].name);
             if (config_.text.show_counters) {
                 const size_t selected_count = sections_[global_index].get_selected_count();
                 if (const size_t total_count = sections_[global_index].size(); total_count > 0) {
                     display_text += " (" + std::to_string(selected_count) + "/" + std::to_string(total_count) + ")";
                 }
             }
-            std::string prefix = (i == static_cast<int>(current_selection_index_)) ? "> " : "  ";
-            std::string text = prefix + display_text;
 
-            auto [t_content, t_line_count] = center_string(text, content_width);
-            const int centered_col = left_padding + (content_width - static_cast<int>(text.length())) / 2;
+            const size_t total_v_w = highlight_v_w + TerminalUtils::get_visible_string_length(display_text);
+            if (total_v_w > max_v_width) {
+                max_v_width = total_v_w;
+            }
 
-            TerminalUtils::move_cursor(items_start_row + i, left_padding);
+            items_to_render.push_back({display_text, is_selected, total_v_w});
+        }
 
-            if (i == static_cast<int>(current_selection_index_)) {
-                if (config_.theme.gradient_enabled &&
-                    config_.theme.gradient_preset != tui_extras::GradientPreset::NONE()) {
-                    std::cout << t_content;
+        const int block_offset = (config_.layout.center_horizontally && content_width > static_cast<int>(max_v_width))
+            ? (content_width - static_cast<int>(max_v_width)) / 2
+            : 0;
 
-                    apply_gradient_text(text, items_start_row + i, centered_col);
-                } else if (config_.theme.use_colors) {
-                    TerminalUtils::set_color(config_.theme.accent_color);
-                    std::cout << t_content;
-                    TerminalUtils::reset_formatting();
-                } else {
-                    std::cout << t_content;
-                }
+        for (size_t i = 0; i < items_to_render.size(); ++i) {
+            const auto& item = items_to_render[i];
+            const std::string highlight =
+                item.is_selected ? config_.theme.highlighted_prefix : std::string(highlight_v_w, ' ');
+
+            const std::string text_to_render = highlight + item.base_text;
+            TerminalUtils::move_cursor(items_start_row + static_cast<int>(i), left_padding + block_offset);
+
+            if (item.is_selected && config_.theme.use_colors &&
+                !(config_.theme.gradient_enabled && config_.theme.gradient_preset != extras::GradientPreset::NONE())) {
+                const std::string accent_color_code = get_color_sequence(config_.theme.palette.selected_item);
+                fmt::print("{}{}", accent_color_code, text_to_render);
+                TerminalUtils::reset_formatting();
+            } else if (item.is_selected && config_.theme.gradient_enabled &&
+                       config_.theme.gradient_preset != extras::GradientPreset::NONE()) {
+                apply_gradient_text(text_to_render, items_start_row + static_cast<int>(i), left_padding + block_offset);
             } else {
-                std::cout << t_content;
+                fmt::print("{}", text_to_render);
             }
         }
     }
@@ -725,58 +827,102 @@ namespace tui {
             return;
         }
 
-        const auto &section = sections_[current_section_index_];
+        const auto& section = sections_[current_section_index_];
 
         // Header
         const std::string title = config_.text.item_selection_prefix + section.name;
         TerminalUtils::move_cursor(start_row, left_padding);
-        std::cout << center_string(title, content_width).content;
+        fmt::print("{}", center_string(title, content_width).content);
 
         TerminalUtils::move_cursor(start_row + 1, left_padding);
-        std::cout << center_string(std::string(title.length(), '='), content_width).content;
+        fmt::print("{}", center_string(std::string(title.length(), '='), content_width).content);
 
         const int items_start_row = start_row + 2 + config_.layout.vertical_padding;
 
         // Items
         if (section.empty()) {
             TerminalUtils::move_cursor(items_start_row, left_padding);
-            std::cout << center_string(config_.text.empty_section_message, content_width).content;
+            fmt::print("{}", center_string(config_.text.empty_section_message, content_width).content);
             return;
         }
 
+        size_t max_v_width = 0;
+
+        struct ItemData {
+            const SelectableItem* item;
+            std::string display_text;
+            bool is_selected;
+        };
+        std::vector<ItemData> items;
+
         auto [first, second] = get_current_page_bounds();
-
         for (size_t i = first; i < second; ++i) {
-            TerminalUtils::move_cursor(static_cast<int>(items_start_row + (i - first)), left_padding);
-            const auto *item = section.get_item(i);
-
+            const auto* item = section.get_item(i);
             if (!item) {
-                return;
+                continue;
             }
 
-            std::string display_text = format_item_with_theme(*item, (i - first) == current_selection_index_);
-            const auto [content, line_count] = center_string(display_text, content_width);
-            const auto centered_col = left_padding + (content_width - static_cast<int>(display_text.length())) / 2;
+            const bool is_selected = (i - first) == current_selection_index_;
+            std::string display_text = format_item_with_theme(*item, is_selected);
+            size_t v_width = TerminalUtils::get_visible_string_length(display_text);
 
-            if (i - first != current_selection_index_) {
-                std::cout << content;
-            } else if (config_.theme.use_colors) {
-                TerminalUtils::set_color(config_.theme.accent_color);
-                std::cout << content;
-                TerminalUtils::reset_formatting();
+            if (v_width > max_v_width) {
+                max_v_width = v_width;
+            }
+
+            items.push_back({item, display_text, is_selected});
+        }
+
+        const int block_offset = (config_.layout.center_horizontally && content_width > static_cast<int>(max_v_width))
+            ? (content_width - static_cast<int>(max_v_width)) / 2
+            : 0;
+
+        for (size_t i = 0; i < items.size(); ++i) {
+            const auto& data = items[i];
+            const int current_row = static_cast<int>(items_start_row + i);
+            TerminalUtils::move_cursor(current_row, left_padding + block_offset);
+
+            if (!data.is_selected) {
+                if (config_.theme.use_colors) {
+                    fmt::print("{}{}", get_color_sequence(config_.theme.palette.unselected_item), data.display_text);
+                    TerminalUtils::reset_formatting();
+                } else {
+                    fmt::print("{}", data.display_text);
+                }
+            } else if (config_.theme.gradient_enabled &&
+                       config_.theme.gradient_preset != extras::GradientPreset::NONE()) {
+                apply_gradient_text(data.display_text, current_row, left_padding + block_offset);
             } else {
-                apply_gradient_text(display_text, static_cast<int>(items_start_row + (i - first)), centered_col);
+                if (config_.theme.use_colors) {
+                    fmt::print("{}{}", get_color_sequence(config_.theme.palette.selected_item), data.display_text);
+                    TerminalUtils::reset_formatting();
+                } else {
+                    fmt::print("{}", data.display_text);
+                }
             }
-
         }
     }
 
     void NavigationTUI::render_footer(const int term_height, const int left_padding, const int content_width,
-                                      const SelectableItem *item = nullptr) {
+                                      const SelectableItem* item = nullptr) {
         // footer (description)
-        // TODO: description rendering for main sections will be added in a future
-        auto description = (item) ? (item->description.empty() ? "No description provided" : item->description)
-                                  : std::string("Description (placeholder)");
+        std::string description;
+
+        if (item) {
+            description = item->description.empty() ? "No description provided" : item->description;
+        } else if (current_state_ == NavigationState::MAIN_MENU) {
+            const auto start_index = current_section_page_ * config_.layout.sections_per_page;
+            const size_t global_index = start_index + current_selection_index_;
+
+            if (global_index < sections_.size()) {
+                const auto& section = sections_[global_index];
+                description = section.description.empty() ? "No description provided" : section.description;
+            } else {
+                description = "No section selected";
+            }
+        } else {
+            description = "Description (placeholder)";
+        }
 
         auto [content, line_count] = center_string(description, content_width);
 
@@ -791,7 +937,7 @@ namespace tui {
 
         while (std::getline(stream, line)) {
             TerminalUtils::move_cursor(current_row, left_padding);
-            std::cout << line;
+            fmt::print("{}", line);
             current_row++;
         }
 
@@ -815,22 +961,24 @@ namespace tui {
         std::istringstream help_stream(help_content);
         while (std::getline(help_stream, line)) {
             TerminalUtils::move_cursor(current_row, left_padding);
-            std::cout << line;
+            fmt::print("{}", line);
             current_row++;
         }
     }
 
-    std::string NavigationTUI::format_item_with_theme(const SelectableItem &item, const bool is_selected) const {
+    std::string NavigationTUI::format_item_with_theme(const SelectableItem& item, const bool is_selected) const {
         const std::string prefix = item.selected ? config_.theme.selected_prefix : config_.theme.unselected_prefix;
-        // TODO: maybe add configuration for highlighted prefix?
-        std::string display_text = std::format("{}{} {}", (is_selected) ? "> " : " ", prefix, item.name);
+        const std::string highlight = is_selected
+            ? config_.theme.highlighted_prefix
+            : std::string(TerminalUtils::get_visible_string_length(config_.theme.highlighted_prefix), ' ');
+        std::string display_text = fmt::format("{}{} {}", highlight, prefix, item.name);
 
         return display_text;
     }
 
     std::string NavigationTUI::get_page_info_string() const {
         int total_pages = calculate_total_pages();
-        return std::format(
+        return fmt::format(
             "Page {} of {}",
             (current_state_ == NavigationState::MAIN_MENU) ? current_section_page_ + 1 : current_page_ + 1,
             total_pages);
@@ -895,291 +1043,313 @@ namespace tui {
         clamp_selection();
     }
 
-    NavigationTUI::FormattedText NavigationTUI::center_string(const std::string &text, const int width) const {
+    NavigationTUI::FormattedText NavigationTUI::center_string(const std::string& text, const int width) const {
         if (!config_.layout.center_horizontally) {
-            return {text, 1};
+            int lines = text.empty() ? 0 : 1;
+            for (char c : text) {
+                if (c == '\n') {
+                    lines++;
+                }
+            }
+            return {text, lines};
         }
 
-        std::string result_content;
+        std::stringstream final_text_stream;
+        std::stringstream input_stream(text);
+        std::string line;
         auto total_lines = 0;
-        std::string current_line;
+        auto first_line = true;
 
-        for (const char c : text) {
-            if (c == '\n') {
-                if (!current_line.empty()) {
-                    int padding = (width - static_cast<int>(current_line.length())) / 2;
-                    if (padding < 0) {
-                        padding = 0;
-                    }
-                    result_content += std::string(padding, ' ') + current_line + '\n';
-                    total_lines++;
-                    current_line.clear();
-                } else {
-                    result_content += '\n';
-                    total_lines++;
-                }
-            } else {
-                if (static_cast<int>(current_line.length()) >= width) {
-                    if (const size_t last_space = current_line.find_last_of(' ');
-                        last_space != std::string::npos && last_space > 0) {
-                        const std::string next_line = current_line.substr(last_space + 1);
-                        current_line = current_line.substr(0, last_space);
-
-                        int padding = (width - static_cast<int>(current_line.length())) / 2;
-                        if (padding < 0) {
-                            padding = 0;
-                        }
-                        result_content += std::string(padding, ' ') + current_line + '\n';
-                        total_lines++;
-
-                        current_line = next_line;
-                    } else {
-                        int padding = (width - static_cast<int>(current_line.length())) / 2;
-                        if (padding < 0) {
-                            padding = 0;
-                        }
-                        result_content += std::string(padding, ' ') + current_line + '\n';
-                        total_lines++;
-                        current_line.clear();
-                    }
-                }
-                current_line += c;
+        while (std::getline(input_stream, line)) {
+            if (!first_line) {
+                final_text_stream << '\n';
             }
+
+            const size_t visible_len = TerminalUtils::get_visible_string_length(line);
+
+            auto padding = 0;
+            if (width > static_cast<int>(visible_len)) {
+                padding = static_cast<int>(width - visible_len) / 2;
+            }
+
+            if (padding > 0) {
+                final_text_stream << std::string(padding, ' ');
+            }
+            final_text_stream << line;
+
+            total_lines++;
+            first_line = false;
         }
 
-        if (!current_line.empty()) {
-            int padding = (width - static_cast<int>(current_line.length())) / 2;
-            if (padding < 0) {
-                padding = 0;
-            }
-            result_content += std::string(padding, ' ') + current_line;
+        if (text.empty()) {
+            return {"", 0};
+        }
+
+        if (!text.empty() && text.back() == '\n') {
+            final_text_stream << '\n';
             total_lines++;
         }
 
-        return {result_content, total_lines};
+
+        return {final_text_stream.str(), total_lines};
     }
 
-    NavigationBuilder &NavigationBuilder::theme_indicators(const char selected, const char unselected) {
+    NavigationBuilder& NavigationBuilder::theme_indicators(const char selected, const char unselected) {
         config_.theme.selected_indicator = selected;
         config_.theme.unselected_indicator = unselected;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::theme_prefixes(const std::string &selected, const std::string &unselected) {
+    NavigationBuilder& NavigationBuilder::theme_prefixes(const std::string& selected, const std::string& unselected,
+                                                         const std::string& highlighted) {
         config_.theme.selected_prefix = selected;
         config_.theme.unselected_prefix = unselected;
+        config_.theme.highlighted_prefix = highlighted;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::theme_unicode(const bool enable) {
+    NavigationBuilder& NavigationBuilder::theme_unicode(const bool enable) {
         config_.theme.use_unicode = enable;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::theme_colors(const bool enable) {
+    NavigationBuilder& NavigationBuilder::theme_colors(const bool enable) {
         config_.theme.use_colors = enable;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::theme_gradient_support(const bool enable) {
+    NavigationBuilder& NavigationBuilder::theme_gradient_support(const bool enable) {
         config_.theme.gradient_enabled = enable;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::theme_gradient_preset(const tui_extras::GradientPreset &preset) {
+    NavigationBuilder& NavigationBuilder::theme_gradient_preset(const extras::GradientPreset& preset) {
         config_.theme.gradient_preset = preset;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::theme_gradient_randomize(const bool enable) {
+    NavigationBuilder& NavigationBuilder::theme_gradient_randomize(const bool enable) {
         config_.theme.gradient_randomize = enable;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::theme_border_style(const tui_extras::BorderStyle &style) {
+    NavigationBuilder& NavigationBuilder::theme_border_style(const extras::BorderStyle& style) {
         config_.theme.border_style = style;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::theme_accent_color(const tui_extras::AccentColor &color) {
+    NavigationBuilder& NavigationBuilder::theme_accent_color(const extras::AccentColor& color) {
         config_.theme.accent_color = color;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::layout_centering(const bool horizontal, const bool vertical) {
+    NavigationBuilder& NavigationBuilder::theme_palette(const extras::ColorPalette& palette) {
+        config_.theme.palette = palette;
+        return *this;
+    }
+
+    NavigationBuilder& NavigationBuilder::theme_color(const std::string& element, const extras::Color& color) {
+        if (element == "border") {
+            config_.theme.palette.border = color;
+        } else if (element == "header_text") {
+            config_.theme.palette.header_text = color;
+        } else if (element == "header_border") {
+            config_.theme.palette.header_border = color;
+        } else if (element == "section_name") {
+            config_.theme.palette.section_name = color;
+        } else if (element == "item_name") {
+            config_.theme.palette.item_name = color;
+        } else if (element == "selected_item") {
+            config_.theme.palette.selected_item = color;
+        } else if (element == "unselected_item") {
+            config_.theme.palette.unselected_item = color;
+        } else if (element == "counter") {
+            config_.theme.palette.counter = color;
+        } else if (element == "footer") {
+            config_.theme.palette.footer = color;
+        }
+        return *this;
+    }
+
+    NavigationBuilder& NavigationBuilder::layout_centering(const bool horizontal, const bool vertical) {
         config_.layout.center_horizontally = horizontal;
         config_.layout.center_vertically = vertical;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::layout_content_width(const int min_width, const int max_width) {
+    NavigationBuilder& NavigationBuilder::layout_content_width(const int min_width, const int max_width) {
         config_.layout.min_content_width = min_width;
         config_.layout.max_content_width = max_width;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::layout_padding(const int vertical_padding) {
+    NavigationBuilder& NavigationBuilder::layout_padding(const int vertical_padding) {
         config_.layout.vertical_padding = vertical_padding;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::layout_auto_resize(const bool enable) {
+    NavigationBuilder& NavigationBuilder::layout_auto_resize(const bool enable) {
         config_.layout.auto_resize_content = enable;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::layout_borders(const bool show) {
+    NavigationBuilder& NavigationBuilder::layout_borders(const bool show) {
         config_.layout.show_borders = show;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::layout_items_per_page(const int count) {
+    NavigationBuilder& NavigationBuilder::layout_items_per_page(const int count) {
         config_.layout.items_per_page = count;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::layout_sections_per_page(const int count) {
+    NavigationBuilder& NavigationBuilder::layout_sections_per_page(const int count) {
         config_.layout.sections_per_page = count;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::paginate_sections(const bool paginate) {
+    NavigationBuilder& NavigationBuilder::paginate_sections(const bool paginate) {
         config_.layout.paginate_sections = paginate;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::text_titles(const std::string &section_title,
-                                                      const std::string &item_prefix) {
+    NavigationBuilder& NavigationBuilder::text_titles(const std::string& section_title,
+                                                      const std::string& item_prefix) {
         config_.text.section_selection_title = section_title;
         config_.text.item_selection_prefix = item_prefix;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::text_messages(const std::string &empty_message) {
+    NavigationBuilder& NavigationBuilder::text_messages(const std::string& empty_message) {
         config_.text.empty_section_message = empty_message;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::text_help(const std::string &section_help, const std::string &item_help) {
+    NavigationBuilder& NavigationBuilder::text_help(const std::string& section_help, const std::string& item_help) {
         config_.text.help_text_sections = section_help;
         config_.text.help_text_items = item_help;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::text_show_help(const bool show) {
+    NavigationBuilder& NavigationBuilder::text_show_help(const bool show) {
         config_.text.show_help_text = show;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::text_show_pages(const bool show) {
+    NavigationBuilder& NavigationBuilder::text_show_pages(const bool show) {
         config_.text.show_page_numbers = show;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::text_show_counters(const bool show) {
+    NavigationBuilder& NavigationBuilder::text_show_counters(const bool show) {
         config_.text.show_counters = show;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::keys_quick_select(const bool enable) {
+    NavigationBuilder& NavigationBuilder::keys_quick_select(const bool enable) {
         config_.enable_quick_select = enable;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::keys_vim_style(const bool enable) {
+    NavigationBuilder& NavigationBuilder::keys_vim_style(const bool enable) {
         config_.enable_vim_keys = enable;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::keys_custom_shortcut(const char key, const std::string &description) {
+    NavigationBuilder& NavigationBuilder::keys_custom_shortcut(const char key, const std::string& description) {
         config_.custom_shortcuts[key] = description;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::add_section(const Section &section) {
+    NavigationBuilder& NavigationBuilder::add_section(const Section& section) {
         sections_.push_back(section);
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::add_section(Section &&section) {
+    NavigationBuilder& NavigationBuilder::add_section(Section&& section) {
         sections_.push_back(std::move(section));
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::add_sections(const std::vector<Section> &sections) {
+    NavigationBuilder& NavigationBuilder::add_sections(const std::vector<Section>& sections) {
         sections_.insert(sections_.end(), sections.begin(), sections.end());
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::on_section_selected(NavigationTUI::SectionSelectedCallback callback) {
+    NavigationBuilder& NavigationBuilder::on_section_selected(NavigationTUI::SectionSelectedCallback callback) {
         section_selected_callback_ = std::move(callback);
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::on_item_toggled(NavigationTUI::ItemToggledCallback callback) {
+    NavigationBuilder& NavigationBuilder::on_item_toggled(NavigationTUI::ItemToggledCallback callback) {
         item_toggled_callback_ = std::move(callback);
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::on_page_changed(NavigationTUI::PageChangedCallback callback) {
+    NavigationBuilder& NavigationBuilder::on_page_changed(NavigationTUI::PageChangedCallback callback) {
         page_changed_callback_ = std::move(callback);
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::on_state_changed(NavigationTUI::StateChangedCallback callback) {
+    NavigationBuilder& NavigationBuilder::on_state_changed(NavigationTUI::StateChangedCallback callback) {
         state_changed_callback_ = std::move(callback);
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::on_exit(NavigationTUI::ExitCallback callback) {
+    NavigationBuilder& NavigationBuilder::on_exit(NavigationTUI::ExitCallback callback) {
         exit_callback_ = std::move(callback);
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::on_custom_command(NavigationTUI::CustomCommandCallback callback) {
+    NavigationBuilder& NavigationBuilder::on_custom_command(NavigationTUI::CustomCommandCallback callback) {
         custom_command_callback_ = std::move(callback);
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::theme_minimal() {
+    NavigationBuilder& NavigationBuilder::on_update(NavigationTUI::UpdateCallback callback) {
+        update_callback_ = std::move(callback);
+        return *this;
+    }
+
+    NavigationBuilder& NavigationBuilder::theme_minimal() {
         config_.theme.use_unicode = false;
         config_.theme.use_colors = false;
         config_.theme.selected_prefix = "* ";
         config_.theme.unselected_prefix = "  ";
-        config_.theme.border_style = tui_extras::BorderStyle::ASCII;
+        config_.theme.border_style = extras::BorderStyle::ASCII;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::theme_fancy() {
+    NavigationBuilder& NavigationBuilder::theme_fancy() {
         config_.theme.use_unicode = true;
         config_.theme.use_colors = true;
         config_.theme.selected_prefix = "✓ ";
         config_.theme.unselected_prefix = "○ ";
-        config_.theme.border_style = tui_extras::BorderStyle::ROUNDED;
+        config_.theme.border_style = extras::BorderStyle::ROUNDED;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::theme_retro() {
+    NavigationBuilder& NavigationBuilder::theme_retro() {
         config_.theme.use_unicode = false;
         config_.theme.use_colors = false;
         config_.theme.selected_prefix = "[X] ";
         config_.theme.unselected_prefix = "[ ] ";
-        config_.theme.border_style = tui_extras::BorderStyle::DOUBLE;
+        config_.theme.border_style = extras::BorderStyle::DOUBLE;
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::theme_modern() {
+    NavigationBuilder& NavigationBuilder::theme_modern() {
         config_.theme.use_unicode = true;
         config_.theme.use_colors = true;
         config_.theme.selected_prefix = "● ";
         config_.theme.unselected_prefix = "○ ";
-        config_.theme.border_style = tui_extras::BorderStyle::ROUNDED;
-        config_.theme.accent_color = tui_extras::AccentColor::BLUE;
+        config_.theme.border_style = extras::BorderStyle::ROUNDED;
+        config_.theme.accent_color = extras::AccentColor::BLUE;
 
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::layout_compact() {
+    NavigationBuilder& NavigationBuilder::layout_compact() {
         config_.layout.items_per_page = 25;
         config_.layout.show_borders = false;
         config_.layout.center_horizontally = false;
@@ -1189,7 +1359,7 @@ namespace tui {
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::layout_comfortable() {
+    NavigationBuilder& NavigationBuilder::layout_comfortable() {
         config_.layout.items_per_page = 15;
         config_.layout.show_borders = true;
         config_.layout.center_horizontally = false;
@@ -1200,7 +1370,7 @@ namespace tui {
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::layout_fullscreen() {
+    NavigationBuilder& NavigationBuilder::layout_fullscreen() {
         config_.layout.items_per_page = 30;
         config_.layout.show_borders = true;
         config_.layout.center_horizontally = false;
@@ -1211,7 +1381,7 @@ namespace tui {
         return *this;
     }
 
-    NavigationBuilder &NavigationBuilder::layout_centered() {
+    NavigationBuilder& NavigationBuilder::layout_centered() {
         config_.layout.center_horizontally = true;
         config_.layout.center_vertically = false;
         config_.layout.items_per_page = 20;
@@ -1225,7 +1395,7 @@ namespace tui {
     std::unique_ptr<NavigationTUI> NavigationBuilder::build() {
         auto tui = std::make_unique<NavigationTUI>(config_);
 
-        for (auto &section : sections_) {
+        for (auto& section : sections_) {
             tui->add_section(std::move(section));
         }
 
@@ -1247,13 +1417,16 @@ namespace tui {
         if (custom_command_callback_) {
             tui->set_custom_command_callback(custom_command_callback_);
         }
+        if (update_callback_) {
+            tui->set_update_callback(update_callback_);
+        }
 
         return tui;
     }
 
-    const NavigationTUI::Config &NavigationBuilder::get_config() const { return config_; }
+    const NavigationTUI::Config& NavigationBuilder::get_config() const { return config_; }
 
-    NavigationBuilder &NavigationBuilder::reset() {
+    NavigationBuilder& NavigationBuilder::reset() {
         config_ = NavigationTUI::Config{};
         sections_.clear();
 
@@ -1263,6 +1436,7 @@ namespace tui {
         state_changed_callback_ = nullptr;
         exit_callback_ = nullptr;
         custom_command_callback_ = nullptr;
+        update_callback_ = nullptr;
 
         return *this;
     }

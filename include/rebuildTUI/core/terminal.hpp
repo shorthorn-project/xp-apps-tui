@@ -1,8 +1,11 @@
 #pragma once
 
-#include "styles.hpp"
-
-#include <iostream>
+#include <optional>
+#include <string>
+#include "core/input.hpp"
+#include "theme/colors.hpp"
+#include "theme/gradient.hpp"
+// #include <iostream>
 
 #ifdef _WIN32
 #include <conio.h>
@@ -18,43 +21,7 @@ namespace tui {
      */
     class TerminalUtils {
     public:
-        /**
-         * @brief Special key codes for navigation
-         */
-        enum class Key {
-            UNKNOWN = 0,
-            ARROW_UP = 1,
-            ARROW_DOWN = 2,
-            ARROW_LEFT = 3,
-            ARROW_RIGHT = 4,
-            ENTER = 5,
-            SPACE = 6,
-            ESCAPE = 7,
-            BACKSPACE = 8,
-            TAB = 9,
-            HOME = 10,
-            END = 11,
-            PAGE_UP = 12,
-            PAGE_DOWN = 13,
-            KEY_DELETE = 14,
-            KEY_J = 15,
-            KEY_K = 16,
-            KEY_H = 17,
-            KEY_L = 18,
-            NORMAL = 19,
-            F1 = 20,
-            F2 = 21,
-            F3 = 22,
-            F4 = 23,
-            F5 = 24,
-            F6 = 25,
-            F7 = 26,
-            F8 = 27,
-            F9 = 28,
-            F10 = 29,
-            F11 = 30,
-            F12 = 31
-        };
+        // Key enum moved to tui::Key in core/input.hpp
 
         /**
          * @brief Color codes for terminal output
@@ -101,41 +68,26 @@ namespace tui {
         static void show_cursor();
         static std::pair<int, int> get_terminal_size();
         static void set_color(Color color);
-        static void set_color(tui_extras::AccentColor color);
+        static void set_color(extras::AccentColor color);
+        static size_t get_visible_string_length(const std::string& string);
 
         // Gradient
         static void set_color_rgb(uint8_t r, uint8_t g, uint8_t b);
-        static void set_color_rgb(tui_extras::GradientColor color);
+        static void set_color_rgb(extras::GradientColor color);
 
         static void set_style(Style style);
         static void reset_formatting();
 
-        /**
-         * @brief Key event structure
-         */
-        struct KeyEvent {
-            Key key;
-            char character;
-
-            explicit KeyEvent(const Key k = Key::UNKNOWN, const char c = '\0') : key(k), character(c) {}
-        };
-
-        static void print_colored(const std::string &text, Color color);
-        static void print_styled(const std::string &text, Style style);
-        static void print_formatted(const std::string &text, Color color, Style style);
-        static int get_key();
-        static bool key_available();
-        static std::pair<Key, char> get_input();
         static void draw_horizontal_line(int row, int start_col, int length, char ch = '-');
         static void draw_vertical_line(int start_row, int col, int length, char ch = '|');
         static void draw_box(int top_row, int left_col, int width, int height);
-        static void print_centered(const std::string &text, int width, int row = -1);
-        static void print_at(int row, int col, const std::string &text);
+        static void print_centered(const std::string& text, int width, int row = -1);
+        static void print_at(int row, int col, const std::string& text);
         static int get_centered_col(int content_width);
         static int get_centered_row(int content_height);
         static std::pair<int, int> get_centered_position(int content_width, int content_height);
-        static void print_centered_at_row(int row, const std::string &text);
-        static void print_centered_screen(const std::string &text);
+        static void print_centered_at_row(int row, const std::string& text);
+        static void print_centered_screen(const std::string& text);
         static void draw_centered_box(int width, int height);
         static std::pair<int, int> get_centering_margins(int content_width, int content_height);
         static void save_cursor_position();
@@ -154,7 +106,6 @@ namespace tui {
         static struct termios original_termios;
         static bool termios_saved;
 #endif
-        static Key parse_escape_sequence();
         static void init_platform_terminal();
         static void restore_platform_terminal();
     };
@@ -189,9 +140,11 @@ namespace tui {
         }
 
         static void clear_screen() { TerminalUtils::clear_screen(); }
-        static void flush_output() { std::cout.flush(); }
+        static void flush_output() { TerminalUtils::flush(); }
 
-        static std::optional<TerminalUtils::KeyEvent> get_key_input();
+        static std::optional<tui::KeyEvent> get_key_input();
+
+        static bool wait_for_input(int timeout_ms);
         static bool key_available();
         static std::pair<int, int> get_terminal_size() { return TerminalUtils::get_terminal_size(); }
     };

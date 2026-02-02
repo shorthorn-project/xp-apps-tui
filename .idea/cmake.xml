@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CMakeSharedSettings">
+    <configurations>
+      <configuration PROFILE_NAME="Windows Release" ENABLED="true" GENERATION_DIR="build-windows" CONFIG_NAME="Release" GENERATION_OPTIONS="-DCMAKE_TOOLCHAIN_FILE=../cmake/windows-mingw-toolchain.cmake -DBUILD_EXAMPLES=ON" NO_GENERATOR="true" />
+      <configuration PROFILE_NAME="Windows Debug" ENABLED="true" GENERATION_DIR="build-windows-debug" CONFIG_NAME="Debug" GENERATION_OPTIONS="-DCMAKE_TOOLCHAIN_FILE=../cmake/windows-mingw-toolchain.cmake -DBUILD_EXAMPLES=ON" NO_GENERATOR="true" />
+    </configurations>
+  </component>
+</project>
