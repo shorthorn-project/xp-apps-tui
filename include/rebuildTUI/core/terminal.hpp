@@ -16,6 +16,12 @@
 
 namespace tui {
 
+    enum ConsoleType {
+        VT,            ///< Windows 10+ with VT/UTF-8 support
+        LegacyUnicode, ///< Legacy Windows NT with TrueType font
+        LegacyRaster   ///< Windows 9x or NT with Raster font
+    };
+
     /**
      * @brief Terminal control utilities for cross-platform TUI applications
      */
@@ -96,18 +102,27 @@ namespace tui {
         static void set_canonical_mode(bool enable);
         static void flush();
 
+        // fallback for NT <10.0
+        static void print_safe(const std::string& utf8_str);
+
     private:
 #ifdef _WIN32
         static HANDLE hConsole;
         static CONSOLE_SCREEN_BUFFER_INFO csbi;
         static DWORD originalConsoleMode;
         static bool is_wt;
+        static ConsoleType s_console_type;
 #else
         static struct termios original_termios;
         static bool termios_saved;
 #endif
         static void init_platform_terminal();
         static void restore_platform_terminal();
+
+        static bool is_unsupported_emoji(unsigned int codepoint);
+        static std::wstring utf8_to_safe_wstring(const std::string& utf8_str, ConsoleType type);
+        static std::string utf16_to_oem(const std::wstring& wstr);
+        static std::string strip_ansi(const std::string& str);
     };
 
     /**
