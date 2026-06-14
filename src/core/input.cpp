@@ -149,8 +149,6 @@ namespace tui {
         }
     }
 
-    Key Input::parse_escape_sequence() {
-        return Key::UNKNOWN;
-    }
+    Key Input::parse_escape_sequence() { return Key::UNKNOWN; }
 
 } // namespace tui
