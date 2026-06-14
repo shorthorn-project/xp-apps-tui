@@ -1,11 +1,35 @@
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR i686)
 
-set(TOOLCHAIN_ROOT "/run/media/nixxo/data/mingw32/mingw32/mingw32_686-msvcrt_win98-15")
+set(TOOLCHAIN_ROOT "${CMAKE_SOURCE_DIR}/mingw")
 
 set(CMAKE_C_COMPILER "${TOOLCHAIN_ROOT}/bin/i686-w64-mingw32-gcc-wrapper")
 set(CMAKE_CXX_COMPILER "${TOOLCHAIN_ROOT}/bin/i686-w64-mingw32-g++-wrapper")
 set(CMAKE_RC_COMPILER "${TOOLCHAIN_ROOT}/bin/i686-w64-mingw32-windres-wrapper")
+
+set(CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES
+    "${TOOLCHAIN_ROOT}/include"
+    "${TOOLCHAIN_ROOT}/lib/gcc/i686-w64-mingw32/15/include"
+    "${TOOLCHAIN_ROOT}/lib/gcc/i686-w64-mingw32/15/include-fixed"
+)
+
+set(CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES
+    "${TOOLCHAIN_ROOT}/include/c++/15"
+    "${TOOLCHAIN_ROOT}/include/c++/15/i686-w64-mingw32"
+    "${TOOLCHAIN_ROOT}/include"
+    "${TOOLCHAIN_ROOT}/lib/gcc/i686-w64-mingw32/15/include"
+    "${TOOLCHAIN_ROOT}/lib/gcc/i686-w64-mingw32/15/include-fixed"
+)
+
+set(CMAKE_C_IMPLICIT_LINK_DIRECTORIES
+    "${TOOLCHAIN_ROOT}/lib"
+    "${TOOLCHAIN_ROOT}/lib/gcc/i686-w64-mingw32/15"
+)
+
+set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES
+    "${TOOLCHAIN_ROOT}/lib"
+    "${TOOLCHAIN_ROOT}/lib/gcc/i686-w64-mingw32/15"
+)
 
 set(CMAKE_FIND_ROOT_PATH "${TOOLCHAIN_ROOT}")
 
