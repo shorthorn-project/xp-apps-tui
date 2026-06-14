@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # WARNING
 # Strictly for targeting i686 CPUs (Pentium Pro, Pentium II, and later with CMOV support)
 # Please note that this cross-compilation environment using Wine wrappers is experimental
@@ -19,7 +20,7 @@ if [ "$CONFIRM" = "false" ]; then
     echo ""
 fi
 
-for cmd in curl 7z wine winepath; do
+for cmd in curl 7z wine winepath sed; do
     if ! command -v "$cmd" &> /dev/null; then
         echo "Error: $cmd is not installed."
         exit 1
@@ -52,7 +53,18 @@ cat << 'EOF' > mingw/bin/i686-w64-mingw32-gcc-wrapper
 #!/bin/bash
 REAL_COMPILER="$(dirname "$0")/i686-w64-mingw32-gcc.exe"
 ARGS=()
+DEP_FILE=""
+NEXT_IS_DEP=false
+
 for arg in "$@"; do
+    if [ "$NEXT_IS_DEP" = true ]; then
+        DEP_FILE="$arg"
+        NEXT_IS_DEP=false
+    fi
+    if [ "$arg" = "-MF" ]; then
+        NEXT_IS_DEP=true
+    fi
+
     if [[ "$arg" =~ ^(-I|-L|-o)(/.*) ]]; then
         flag="${BASH_REMATCH[1]}"
         unix_path="${BASH_REMATCH[2]}"
@@ -65,14 +77,33 @@ for arg in "$@"; do
         ARGS+=("$arg")
     fi
 done
+
 WINEDEBUG=-all wine "$REAL_COMPILER" "${ARGS[@]}"
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 0 ] && [ ! -z "$DEP_FILE" ] && [ -f "$DEP_FILE" ]; then
+    sed -i -e 's|[a-zA-Z]:/|/|g' -e 's|[a-zA-Z]:\\|/|g' -e 's|\\|/|g' "$DEP_FILE"
+fi
+
+exit $EXIT_CODE
 EOF
 
 cat << 'EOF' > mingw/bin/i686-w64-mingw32-g++-wrapper
 #!/bin/bash
 REAL_COMPILER="$(dirname "$0")/i686-w64-mingw32-g++.exe"
 ARGS=()
+DEP_FILE=""
+NEXT_IS_DEP=false
+
 for arg in "$@"; do
+    if [ "$NEXT_IS_DEP" = true ]; then
+        DEP_FILE="$arg"
+        NEXT_IS_DEP=false
+    fi
+    if [ "$arg" = "-MF" ]; then
+        NEXT_IS_DEP=true
+    fi
+
     if [[ "$arg" =~ ^(-I|-L|-o)(/.*) ]]; then
         flag="${BASH_REMATCH[1]}"
         unix_path="${BASH_REMATCH[2]}"
@@ -85,7 +116,15 @@ for arg in "$@"; do
         ARGS+=("$arg")
     fi
 done
+
 WINEDEBUG=-all wine "$REAL_COMPILER" "${ARGS[@]}"
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 0 ] && [ ! -z "$DEP_FILE" ] && [ -f "$DEP_FILE" ]; then
+    sed -i -e 's|[a-zA-Z]:/|/|g' -e 's|[a-zA-Z]:\\|/|g' -e 's|\\|/|g' "$DEP_FILE"
+fi
+
+exit $EXIT_CODE
 EOF
 
 cat << 'EOF' > mingw/bin/i686-w64-mingw32-windres-wrapper
