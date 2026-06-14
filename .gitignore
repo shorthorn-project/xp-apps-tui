@@ -6,3 +6,6 @@ install/
 .vscode/
 .cache
 .idea/
+
+# custom mingw compiler for Win9x support (very experimental!!)
+/mingw/
