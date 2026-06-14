@@ -9,6 +9,12 @@
 #include <sstream>
 #include <utility>
 
+#ifdef _WIN32
+#define TUI_PRINT(...) TerminalUtils::print_safe(fmt::format(__VA_ARGS__))
+#else
+#define TUI_PRINT(...) fmt::print(__VA_ARGS__)
+#endif
+
 namespace tui {
 
     // get ANSI sequence from Color
@@ -590,29 +596,29 @@ namespace tui {
         }
 
         if (config_.theme.use_colors) {
-            fmt::print("{}", get_color_sequence(config_.theme.palette.border));
+            TUI_PRINT("{}", get_color_sequence(config_.theme.palette.border));
         }
 
         TerminalUtils::move_cursor(top, left);
-        fmt::print("{}", top_left);
+        TUI_PRINT("{}", top_left);
         for (auto i = 0; i < width - 2; ++i) {
-            fmt::print("{}", horizontal);
+            TUI_PRINT("{}", horizontal);
         }
-        fmt::print("{}", top_right);
+        TUI_PRINT("{}", top_right);
 
         for (int y = top + 1; y < top + height - 1; ++y) {
             TerminalUtils::move_cursor(y, left);
-            fmt::print("{}", vertical);
+            TUI_PRINT("{}", vertical);
             TerminalUtils::move_cursor(y, left + width - 1);
-            fmt::print("{}", vertical);
+            TUI_PRINT("{}", vertical);
         }
 
         TerminalUtils::move_cursor(top + height - 1, left);
-        fmt::print("{}", bottom_left);
+        TUI_PRINT("{}", bottom_left);
         for (int i = 0; i < width - 2; ++i) {
-            fmt::print("{}", horizontal);
+            TUI_PRINT("{}", horizontal);
         }
-        fmt::print("{}", bottom_right);
+        TUI_PRINT("{}", bottom_right);
 
         TerminalUtils::reset_formatting();
     }
@@ -752,10 +758,10 @@ namespace tui {
     void NavigationTUI::render_section_selection(const int start_row, const int left_padding, const int content_width) {
         // Header
         TerminalUtils::move_cursor(start_row, left_padding);
-        fmt::print("{}", center_string(config_.text.section_selection_title, content_width).content);
+        TUI_PRINT("{}", center_string(config_.text.section_selection_title, content_width).content);
 
         TerminalUtils::move_cursor(start_row + 1, left_padding);
-        fmt::print(
+        TUI_PRINT(
             "{}",
             center_string(std::string(config_.text.section_selection_title.length(), '='), content_width).content);
 
@@ -811,13 +817,13 @@ namespace tui {
             if (item.is_selected && config_.theme.use_colors &&
                 !(config_.theme.gradient_enabled && config_.theme.gradient_preset != extras::GradientPreset::NONE())) {
                 const std::string accent_color_code = get_color_sequence(config_.theme.palette.selected_item);
-                fmt::print("{}{}", accent_color_code, text_to_render);
+                TUI_PRINT("{}{}", accent_color_code, text_to_render);
                 TerminalUtils::reset_formatting();
             } else if (item.is_selected && config_.theme.gradient_enabled &&
                        config_.theme.gradient_preset != extras::GradientPreset::NONE()) {
                 apply_gradient_text(text_to_render, items_start_row + static_cast<int>(i), left_padding + block_offset);
             } else {
-                fmt::print("{}", text_to_render);
+                TUI_PRINT("{}", text_to_render);
             }
         }
     }
@@ -832,17 +838,17 @@ namespace tui {
         // Header
         const std::string title = config_.text.item_selection_prefix + section.name;
         TerminalUtils::move_cursor(start_row, left_padding);
-        fmt::print("{}", center_string(title, content_width).content);
+        TUI_PRINT("{}", center_string(title, content_width).content);
 
         TerminalUtils::move_cursor(start_row + 1, left_padding);
-        fmt::print("{}", center_string(std::string(title.length(), '='), content_width).content);
+        TUI_PRINT("{}", center_string(std::string(title.length(), '='), content_width).content);
 
         const int items_start_row = start_row + 2 + config_.layout.vertical_padding;
 
         // Items
         if (section.empty()) {
             TerminalUtils::move_cursor(items_start_row, left_padding);
-            fmt::print("{}", center_string(config_.text.empty_section_message, content_width).content);
+            TUI_PRINT("{}", center_string(config_.text.empty_section_message, content_width).content);
             return;
         }
 
@@ -884,27 +890,27 @@ namespace tui {
 
             if (!data.is_selected) {
                 if (config_.theme.use_colors) {
-                    fmt::print("{}{}", get_color_sequence(config_.theme.palette.unselected_item), data.display_text);
+                    TUI_PRINT("{}{}", get_color_sequence(config_.theme.palette.unselected_item), data.display_text);
                     TerminalUtils::reset_formatting();
                 } else {
-                    fmt::print("{}", data.display_text);
+                    TUI_PRINT("{}", data.display_text);
                 }
             } else if (config_.theme.gradient_enabled &&
                        config_.theme.gradient_preset != extras::GradientPreset::NONE()) {
                 apply_gradient_text(data.display_text, current_row, left_padding + block_offset);
             } else {
                 if (config_.theme.use_colors) {
-                    fmt::print("{}{}", get_color_sequence(config_.theme.palette.selected_item), data.display_text);
+                    TUI_PRINT("{}{}", get_color_sequence(config_.theme.palette.selected_item), data.display_text);
                     TerminalUtils::reset_formatting();
                 } else {
-                    fmt::print("{}", data.display_text);
+                    TUI_PRINT("{}", data.display_text);
                 }
             }
         }
     }
 
     void NavigationTUI::render_footer(const int term_height, const int left_padding, const int content_width,
-                                      const SelectableItem* item = nullptr) {
+                                      const SelectableItem* item) {
         // footer (description)
         std::string description;
 
@@ -937,7 +943,7 @@ namespace tui {
 
         while (std::getline(stream, line)) {
             TerminalUtils::move_cursor(current_row, left_padding);
-            fmt::print("{}", line);
+            TUI_PRINT("{}", line);
             current_row++;
         }
 
@@ -961,7 +967,7 @@ namespace tui {
         std::istringstream help_stream(help_content);
         while (std::getline(help_stream, line)) {
             TerminalUtils::move_cursor(current_row, left_padding);
-            fmt::print("{}", line);
+            TUI_PRINT("{}", line);
             current_row++;
         }
     }
