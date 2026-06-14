@@ -1,5 +1,4 @@
 #include "core/terminal.hpp"
-// #include <print>
 #include <fmt/base.h>
 #include "core/input.hpp"
 
@@ -11,7 +10,6 @@
 
 namespace tui {
 
-// Static member definitions
 #ifdef _WIN32
     HANDLE TerminalUtils::hConsole = INVALID_HANDLE_VALUE;
     CONSOLE_SCREEN_BUFFER_INFO TerminalUtils::csbi = {};
@@ -35,59 +33,23 @@ namespace tui {
     }
 
     void TerminalUtils::clear_screen() {
-#ifdef _WIN32
-        if (hConsole != INVALID_HANDLE_VALUE) {
-            COORD coord = {0, 0};
-            DWORD written;
-            GetConsoleScreenBufferInfo(hConsole, &csbi);
-            FillConsoleOutputCharacterA(hConsole, ' ', csbi.dwSize.X * csbi.dwSize.Y, coord, &written);
-            FillConsoleOutputAttribute(hConsole, csbi.wAttributes, csbi.dwSize.X * csbi.dwSize.Y, coord, &written);
-            SetConsoleCursorPosition(hConsole, coord);
-        }
-#else
         fmt::print("\033[2J\033[H");
         flush();
-#endif
     }
 
     void TerminalUtils::move_cursor(int row, int col) {
-#ifdef _WIN32
-        if (hConsole != INVALID_HANDLE_VALUE) {
-            COORD coord = {static_cast<SHORT>(col - 1), static_cast<SHORT>(row - 1)};
-            SetConsoleCursorPosition(hConsole, coord);
-        }
-#else
         fmt::print("\033[{};{}H", row, col);
         flush();
-#endif
     }
 
     void TerminalUtils::hide_cursor() {
-#ifdef _WIN32
-        if (hConsole != INVALID_HANDLE_VALUE) {
-            CONSOLE_CURSOR_INFO cursorInfo;
-            GetConsoleCursorInfo(hConsole, &cursorInfo);
-            cursorInfo.bVisible = FALSE;
-            SetConsoleCursorInfo(hConsole, &cursorInfo);
-        }
-#else
         fmt::print("\033[?25l");
         flush();
-#endif
     }
 
     void TerminalUtils::show_cursor() {
-#ifdef _WIN32
-        if (hConsole != INVALID_HANDLE_VALUE) {
-            CONSOLE_CURSOR_INFO cursorInfo;
-            GetConsoleCursorInfo(hConsole, &cursorInfo);
-            cursorInfo.bVisible = TRUE;
-            SetConsoleCursorInfo(hConsole, &cursorInfo);
-        }
-#else
         fmt::print("\033[?25h");
         flush();
-#endif
     }
 
     std::pair<int, int> TerminalUtils::get_terminal_size() {
@@ -113,135 +75,13 @@ namespace tui {
     }
 
     void TerminalUtils::set_color(Color color) {
-#ifdef _WIN32
-        if (hConsole != INVALID_HANDLE_VALUE) {
-            WORD attributes = 0;
-            switch (color) {
-            case Color::BLACK:
-                attributes = 0;
-                break;
-            case Color::RED:
-                attributes = FOREGROUND_RED;
-                break;
-            case Color::GREEN:
-                attributes = FOREGROUND_GREEN;
-                break;
-            case Color::YELLOW:
-                attributes = FOREGROUND_RED | FOREGROUND_GREEN;
-                break;
-            case Color::BLUE:
-                attributes = FOREGROUND_BLUE;
-                break;
-            case Color::MAGENTA:
-                attributes = FOREGROUND_RED | FOREGROUND_BLUE;
-                break;
-            case Color::CYAN:
-                attributes = FOREGROUND_GREEN | FOREGROUND_BLUE;
-                break;
-            case Color::WHITE:
-                attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
-                break;
-            case Color::BRIGHT_BLACK:
-                attributes = FOREGROUND_INTENSITY;
-                break;
-            case Color::BRIGHT_RED:
-                attributes = FOREGROUND_RED | FOREGROUND_INTENSITY;
-                break;
-            case Color::BRIGHT_GREEN:
-                attributes = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
-                break;
-            case Color::BRIGHT_YELLOW:
-                attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
-                break;
-            case Color::BRIGHT_BLUE:
-                attributes = FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-                break;
-            case Color::BRIGHT_MAGENTA:
-                attributes = FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-                break;
-            case Color::BRIGHT_CYAN:
-                attributes = FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-                break;
-            case Color::BRIGHT_WHITE:
-                attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-                break;
-            default:
-                attributes = csbi.wAttributes;
-                break;
-            }
-            SetConsoleTextAttribute(hConsole, attributes);
-        }
-#else
         fmt::print("\033[{}m", (color == Color::RESET) ? 0 : static_cast<int>(color));
-
         flush();
-#endif
     }
 
     void TerminalUtils::set_color(extras::AccentColor color) {
-#ifdef _WIN32
-        if (hConsole != INVALID_HANDLE_VALUE) {
-            WORD attributes = 0;
-            switch (color) {
-            case extras::AccentColor::BLACK:
-                attributes = 0;
-                break;
-            case extras::AccentColor::RED:
-                attributes = FOREGROUND_RED;
-                break;
-            case extras::AccentColor::GREEN:
-                attributes = FOREGROUND_GREEN;
-                break;
-            case extras::AccentColor::YELLOW:
-                attributes = FOREGROUND_RED | FOREGROUND_GREEN;
-                break;
-            case extras::AccentColor::BLUE:
-                attributes = FOREGROUND_BLUE;
-                break;
-            case extras::AccentColor::MAGENTA:
-                attributes = FOREGROUND_RED | FOREGROUND_BLUE;
-                break;
-            case extras::AccentColor::CYAN:
-                attributes = FOREGROUND_GREEN | FOREGROUND_BLUE;
-                break;
-            case extras::AccentColor::WHITE:
-                attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
-                break;
-            case extras::AccentColor::BRIGHT_BLACK:
-                attributes = FOREGROUND_INTENSITY;
-                break;
-            case extras::AccentColor::BRIGHT_RED:
-                attributes = FOREGROUND_RED | FOREGROUND_INTENSITY;
-                break;
-            case extras::AccentColor::BRIGHT_GREEN:
-                attributes = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
-                break;
-            case extras::AccentColor::BRIGHT_YELLOW:
-                attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
-                break;
-            case extras::AccentColor::BRIGHT_BLUE:
-                attributes = FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-                break;
-            case extras::AccentColor::BRIGHT_MAGENTA:
-                attributes = FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-                break;
-            case extras::AccentColor::BRIGHT_CYAN:
-                attributes = FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-                break;
-            case extras::AccentColor::BRIGHT_WHITE:
-                attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-                break;
-            default:
-                attributes = csbi.wAttributes;
-                break;
-            }
-            SetConsoleTextAttribute(hConsole, attributes);
-        }
-#else
         fmt::print("\033[{}m", (color == extras::AccentColor::RESET) ? 0 : static_cast<int>(color));
-
         flush();
-#endif
     }
 
     size_t TerminalUtils::get_visible_string_length(const std::string& string) {
@@ -272,61 +112,24 @@ namespace tui {
     }
 
     void TerminalUtils::set_color_rgb(uint8_t r, uint8_t g, uint8_t b) {
-        // #ifdef _WIN32
-        //         printf("\033[38;2;%d;%d;%dm", r, g, b);
-        // #else
         fmt::print("\033[38;2;{};{};{}m", static_cast<int>(r), static_cast<int>(g), static_cast<int>(b));
-        // #endif
         flush();
     }
 
     void TerminalUtils::set_color_rgb(const extras::GradientColor color) {
-#ifdef _WIN32
-        if (!is_wt) {
-            return;
-        }
-#endif
-
         auto [r, g, b] = color.get_color();
         set_color_rgb(r, g, b);
     }
 
     void TerminalUtils::set_style(Style style) {
-#ifdef _WIN32
-        // Windows console doesn't support all styles, so we'll do our best
-        if (hConsole != INVALID_HANDLE_VALUE) {
-            switch (style) {
-            case Style::BOLD:
-                SetConsoleTextAttribute(hConsole, csbi.wAttributes | FOREGROUND_INTENSITY);
-                break;
-            case Style::REVERSE:
-                SetConsoleTextAttribute(hConsole, ((csbi.wAttributes & 0xF0) >> 4) | ((csbi.wAttributes & 0x0F) << 4));
-                break;
-            case Style::RESET:
-                SetConsoleTextAttribute(hConsole, csbi.wAttributes);
-                break;
-            default:
-                break; // Other styles not supported on Windows
-            }
-        }
-#else
         fmt::print("\033[{}m", static_cast<int>(style));
-        // std::cout << "\033[" << static_cast<int>(style) << "m";
         flush();
-#endif
     }
 
     void TerminalUtils::reset_formatting() {
-#ifdef _WIN32
-        if (hConsole != INVALID_HANDLE_VALUE) {
-            SetConsoleTextAttribute(hConsole, csbi.wAttributes);
-        }
-#else
         fmt::print("\033[0m");
         flush();
-#endif
     }
-
 
     void TerminalUtils::draw_horizontal_line(const int row, const int start_col, const int length, const char ch) {
         move_cursor(row, start_col);
@@ -394,25 +197,13 @@ namespace tui {
     }
 
     void TerminalUtils::save_cursor_position() {
-#ifdef _WIN32
-        if (hConsole != INVALID_HANDLE_VALUE) {
-            GetConsoleScreenBufferInfo(hConsole, &csbi);
-        }
-#else
         fmt::print("\033[s");
         flush();
-#endif
     }
 
     void TerminalUtils::restore_cursor_position() {
-#ifdef _WIN32
-        if (hConsole != INVALID_HANDLE_VALUE) {
-            SetConsoleCursorPosition(hConsole, csbi.dwCursorPosition);
-        }
-#else
         fmt::print("\033[u");
         flush();
-#endif
     }
 
     void TerminalUtils::set_echo(bool enable) {
@@ -466,13 +257,11 @@ namespace tui {
     }
 
     void TerminalUtils::print_centered_at_row(int row, const std::string& text) {
-        // auto [height, width] = get_terminal_size();
         int col = get_centered_col(static_cast<int>(text.length()));
         print_at(row, col, text);
     }
 
     void TerminalUtils::print_centered_screen(const std::string& text) {
-        // auto [height, width] = get_terminal_size();
         int row = get_centered_row(1);
         int col = get_centered_col(static_cast<int>(text.length()));
         print_at(row, col, text);
@@ -566,6 +355,5 @@ namespace tui {
     bool TerminalManager::wait_for_input(int timeout_ms) { return Input::wait_for_input(timeout_ms); }
 
     bool TerminalManager::key_available() { return Input::key_available(); }
-
 
 } // namespace tui
