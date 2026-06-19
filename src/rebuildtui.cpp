@@ -15,6 +15,8 @@
 #define TUI_PRINT(...) fmt::print(__VA_ARGS__)
 #endif
 
+
+// TODO: separate this shit :p
 namespace tui {
 
     // get ANSI sequence from Color
@@ -1261,6 +1263,8 @@ namespace tui {
         config_.enable_vim_keys = enable;
         return *this;
     }
+
+    // TODO: impl keys_custom_shortcuts (accepts vector<char, string>)
 
     NavigationBuilder& NavigationBuilder::keys_custom_shortcut(const char key, const std::string& description) {
         config_.custom_shortcuts[key] = description;
