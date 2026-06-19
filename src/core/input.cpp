@@ -10,8 +10,50 @@
 #include <unistd.h>
 #endif
 #include <cstdio>
+#include <unordered_map>
 
 namespace tui {
+
+    namespace {
+        const std::unordered_map<int, Key> simple_map = {{'\n', Key::ENTER},  {'\r', Key::ENTER},
+                                                         {' ', Key::SPACE},   {'\t', Key::TAB},
+                                                         {8, Key::BACKSPACE}, {127, Key::BACKSPACE}};
+
+        const std::unordered_map<int, Key> ansi_map = {
+            {'A', Key::ARROW_UP},   {'B', Key::ARROW_DOWN}, {'C', Key::ARROW_RIGHT},
+            {'D', Key::ARROW_LEFT}, {'H', Key::HOME},       {'F', Key::END},
+            {'5', Key::PAGE_UP},    {'6', Key::PAGE_DOWN},  {'3', Key::KEY_DELETE}};
+
+#ifdef _WIN32
+        const std::unordered_map<int, Key> win_map = {
+            {72, Key::ARROW_UP}, {80, Key::ARROW_DOWN}, {75, Key::ARROW_LEFT}, {77, Key::ARROW_RIGHT}, {71, Key::HOME},
+            {79, Key::END},      {73, Key::PAGE_UP},    {81, Key::PAGE_DOWN},  {83, Key::KEY_DELETE}};
+#endif
+
+        std::pair<Key, char> read_ansi_sequence() {
+            if (!Input::wait_for_input(10)) {
+                return {Key::ESCAPE, 0};
+            }
+
+            const int ch1 = Input::get_key();
+            if (ch1 == 27) { // ESCAPE
+                return {Key::ESCAPE, 0};
+            }
+
+            if (ch1 == '[' || ch1 == 'O') {
+                const int ch2 = Input::get_key();
+                auto it = ansi_map.find(ch2);
+                if (it != ansi_map.end()) {
+                    if (ch2 == '5' || ch2 == '6' || ch2 == '3') {
+                        Input::get_key();
+                    }
+                    return {it->second, 0};
+                }
+            }
+
+            return {Key::UNKNOWN, 0};
+        }
+    } // namespace
 
     int Input::get_key() {
 #ifdef _WIN32
@@ -67,86 +109,33 @@ namespace tui {
     }
 
     std::pair<Key, char> Input::get_input() {
-        int ch = get_key();
-        if (ch == 27) { // Escape
-            if (wait_for_input(10)) {
-                const int ch1 = get_key();
-                if (ch1 == 27) {
-                    return {Key::ESCAPE, 0};
-                }
+        const int ch = get_key();
 
-                if (ch1 == '[' || ch1 == 'O') {
-                    switch (get_key()) {
-                    case 'A':
-                        return {Key::ARROW_UP, 0};
-                    case 'B':
-                        return {Key::ARROW_DOWN, 0};
-                    case 'C':
-                        return {Key::ARROW_RIGHT, 0};
-                    case 'D':
-                        return {Key::ARROW_LEFT, 0};
-                    case 'H':
-                        return {Key::HOME, 0};
-                    case 'F':
-                        return {Key::END, 0};
-                    case '5':
-                        get_key();
-                        return {Key::PAGE_UP, 0};
-                    case '6':
-                        get_key();
-                        return {Key::PAGE_DOWN, 0};
-                    case '3':
-                        get_key();
-                        return {Key::KEY_DELETE, 0};
-                    default:
-                        return {Key::UNKNOWN, 0};
-                    }
-                }
-            }
-            return {Key::ESCAPE, 0};
+        if (ch == 27) {
+            return read_ansi_sequence();
         }
 
-        switch (ch) {
-        case '\n':
-        case '\r':
-            return {Key::ENTER, 0};
-        case ' ':
-            return {Key::SPACE, 0};
-        case '\t':
-            return {Key::TAB, 0};
-        case 8:
-        case 127:
-            return {Key::BACKSPACE, 0};
+        auto it = simple_map.find(ch);
+        if (it != simple_map.end()) {
+            return {it->second, 0};
+        }
+
 #ifdef _WIN32
-        case 224:
-            ch = get_key();
-            switch (ch) {
-            case 72:
-                return {Key::ARROW_UP, 0};
-            case 80:
-                return {Key::ARROW_DOWN, 0};
-            case 75:
-                return {Key::ARROW_LEFT, 0};
-            case 77:
-                return {Key::ARROW_RIGHT, 0};
-            case 71:
-                return {Key::HOME, 0};
-            case 79:
-                return {Key::END, 0};
-            case 73:
-                return {Key::PAGE_UP, 0};
-            case 81:
-                return {Key::PAGE_DOWN, 0};
-            case 83:
-                return {Key::KEY_DELETE, 0};
-            default:
-                return {Key::UNKNOWN, 0};
+        if (ch == 224) {
+            const int next_ch = get_key();
+            auto win_it = win_map.find(next_ch);
+            if (win_it != win_map.end()) {
+                return {win_it->second, 0};
             }
-#endif
-        default:
-            return {(ch >= 32 && ch <= 126) ? Key::NORMAL : Key::UNKNOWN,
-                    (ch >= 32 && ch <= 126) ? static_cast<char>(ch) : 0};
+            return {Key::UNKNOWN, 0};
         }
+#endif
+
+        if (ch >= 32 && ch <= 126) {
+            return {Key::NORMAL, static_cast<char>(ch)};
+        }
+
+        return {Key::UNKNOWN, 0};
     }
 
     Key Input::parse_escape_sequence() { return Key::UNKNOWN; }
