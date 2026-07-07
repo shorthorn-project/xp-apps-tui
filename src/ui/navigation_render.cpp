@@ -176,15 +176,15 @@ namespace tui {
         const std::string separator = center_string(std::string(title.length(), '='), content_width).content;
 
         if (config_.theme.use_colors) {
-            fmt::print("{}", extras::get_color_sequence(config_.theme.palette.header_text) + centered_title);
+            TUI_PRINT("{}", extras::get_color_sequence(config_.theme.palette.header_text) + centered_title);
             TerminalUtils::reset_formatting();
-            fmt::println("");
-            fmt::print("{}", extras::get_color_sequence(config_.theme.palette.header_border) + separator);
+            TUI_PRINT("\n");
+            TUI_PRINT("{}", extras::get_color_sequence(config_.theme.palette.header_border) + separator);
             TerminalUtils::reset_formatting();
-            fmt::println("");
+            TUI_PRINT("\n");
         } else {
-            fmt::println("{}", centered_title);
-            fmt::println("{}", separator);
+            TUI_PRINT("{}\n", centered_title);
+            TUI_PRINT("{}\n", separator);
         }
     }
 
@@ -193,10 +193,18 @@ namespace tui {
             return;
         }
 
+#ifdef _WIN32
+        if (!TerminalUtils::is_vt_supported()) {
+            TerminalUtils::move_cursor(row, col);
+            TUI_PRINT("{}", text);
+            return;
+        }
+#endif
+
         const size_t visible_len = TerminalUtils::get_visible_string_length(text);
         if (visible_len == 0) {
             TerminalUtils::move_cursor(row, col);
-            fmt::print("{}", text);
+            TUI_PRINT("{}", text);
             return;
         }
 
@@ -216,16 +224,16 @@ namespace tui {
         for (size_t i = 0; i < text.length(); ++i) {
             if (text[i] == '\033') {
                 if (const size_t end_pos = text.find('m', i); end_pos != std::string::npos) {
-                    fmt::print("{}", text.substr(i, end_pos - i + 1));
+                    TUI_PRINT("{}", text.substr(i, end_pos - i + 1));
                     i = end_pos;
                 } else {
-                    fmt::print("{}", text[i]);
+                    TUI_PRINT("{}", text[i]);
                 }
             } else {
                 if (gradient_idx < gradient.size()) {
                     TerminalUtils::set_color_rgb(gradient[gradient_idx++]);
                 }
-                fmt::print("{}", text[i]);
+                TUI_PRINT("{}", text[i]);
             }
         }
         TerminalUtils::reset_formatting();

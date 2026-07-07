@@ -27,8 +27,6 @@ namespace tui {
      */
     class TerminalUtils {
     public:
-        // Key enum moved to tui::Key in core/input.hpp
-
         /**
          * @brief Color codes for terminal output
          */
@@ -76,6 +74,9 @@ namespace tui {
         static void set_color(Color color);
         static void set_color(extras::AccentColor color);
         static size_t get_visible_string_length(const std::string& string);
+
+        // Checks if Virtual Terminal is supported and active
+        static bool is_vt_supported();
 
         // Gradient
         static void set_color_rgb(uint8_t r, uint8_t g, uint8_t b);

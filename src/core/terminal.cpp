@@ -2,10 +2,11 @@
 #include <fmt/base.h>
 #include "core/input.hpp"
 
+#include <sstream>
+#include <vector>
+
 #ifndef _WIN32
 #include <sys/ioctl.h>
-// #include <stringapiset.h>
-// #include <wine/windows/winnls.h>
 #endif
 
 #include <unistd.h>
@@ -18,6 +19,63 @@ namespace tui {
     DWORD TerminalUtils::originalConsoleMode = 0;
     bool TerminalUtils::is_wt = false;
     ConsoleType TerminalUtils::s_console_type = ConsoleType::LegacyRaster;
+
+    namespace {
+        WORD convert_ansi_attrs(const std::vector<int>& codes, WORD current_attrs) {
+            WORD bg_mask = current_attrs & (BACKGROUND_BLUE | BACKGROUND_GREEN | BACKGROUND_RED | BACKGROUND_INTENSITY);
+            WORD fg_mask = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED;
+            bool bold = false;
+            bool reverse = false;
+
+            for (int code : codes) {
+                if (code == 0) {
+                    fg_mask = FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_RED;
+                    bold = false;
+                    reverse = false;
+                } else if (code == 1) {
+                    bold = true;
+                } else if (code == 7) {
+                    reverse = true;
+                } else if (code >= 30 && code <= 37) {
+                    fg_mask = 0;
+                    int c = code - 30;
+                    if (c & 1) {
+                        fg_mask |= FOREGROUND_RED;
+                    }
+                    if (c & 2) {
+                        fg_mask |= FOREGROUND_GREEN;
+                    }
+                    if (c & 4) {
+                        fg_mask |= FOREGROUND_BLUE;
+                    }
+                } else if (code >= 90 && code <= 97) {
+                    fg_mask = FOREGROUND_INTENSITY;
+                    int c = code - 90;
+                    if (c & 1) {
+                        fg_mask |= FOREGROUND_RED;
+                    }
+                    if (c & 2) {
+                        fg_mask |= FOREGROUND_GREEN;
+                    }
+                    if (c & 4) {
+                        fg_mask |= FOREGROUND_BLUE;
+                    }
+                }
+            }
+
+            if (bold && !reverse) {
+                fg_mask |= FOREGROUND_INTENSITY;
+            }
+
+            if (reverse) {
+                WORD new_fg = (bg_mask >> 4) & 0x0F;
+                WORD new_bg = (fg_mask << 4) & 0xF0;
+                return new_fg | new_bg;
+            }
+
+            return fg_mask | bg_mask;
+        }
+    } // namespace
 #else
     termios TerminalUtils::original_termios = {};
     bool TerminalUtils::termios_saved = false;
@@ -36,21 +94,65 @@ namespace tui {
     }
 
     void TerminalUtils::clear_screen() {
+#ifdef _WIN32
+        if (s_console_type != ConsoleType::VT) {
+            if (hConsole != INVALID_HANDLE_VALUE) {
+                COORD coord = {0, 0};
+                DWORD written;
+                GetConsoleScreenBufferInfo(hConsole, &csbi);
+                FillConsoleOutputCharacterA(hConsole, ' ', csbi.dwSize.X * csbi.dwSize.Y, coord, &written);
+                FillConsoleOutputAttribute(hConsole, csbi.wAttributes, csbi.dwSize.X * csbi.dwSize.Y, coord, &written);
+                SetConsoleCursorPosition(hConsole, coord);
+            }
+            return;
+        }
+#endif
         fmt::print("\033[2J\033[H");
         flush();
     }
 
     void TerminalUtils::move_cursor(int row, int col) {
+#ifdef _WIN32
+        if (s_console_type != ConsoleType::VT) {
+            if (hConsole != INVALID_HANDLE_VALUE) {
+                COORD coord = {static_cast<SHORT>(col - 1), static_cast<SHORT>(row - 1)};
+                SetConsoleCursorPosition(hConsole, coord);
+            }
+            return;
+        }
+#endif
         fmt::print("\033[{};{}H", row, col);
         flush();
     }
 
     void TerminalUtils::hide_cursor() {
+#ifdef _WIN32
+        if (s_console_type != ConsoleType::VT) {
+            if (hConsole != INVALID_HANDLE_VALUE) {
+                CONSOLE_CURSOR_INFO cursorInfo;
+                GetConsoleCursorInfo(hConsole, &cursorInfo);
+                cursorInfo.bVisible = FALSE;
+                SetConsoleCursorInfo(hConsole, &cursorInfo);
+            }
+            return;
+        }
+#endif
         fmt::print("\033[?25l");
         flush();
     }
 
     void TerminalUtils::show_cursor() {
+#ifdef _WIN32
+        if (s_console_type != ConsoleType::VT) {
+            if (hConsole != INVALID_HANDLE_VALUE) {
+                CONSOLE_CURSOR_INFO cursorInfo;
+                GetConsoleCursorInfo(hConsole, &cursorInfo);
+                cursorInfo.bVisible = TRUE;
+                SetConsoleCursorInfo(hConsole, &cursorInfo);
+            }
+            return;
+        }
+#endif
         fmt::print("\033[?25h");
         flush();
     }
@@ -78,11 +180,135 @@ namespace tui {
     }
 
     void TerminalUtils::set_color(Color color) {
+#ifdef _WIN32
+        if (s_console_type != ConsoleType::VT) {
+            if (hConsole != INVALID_HANDLE_VALUE) {
+                WORD attributes = 0;
+                switch (color) {
+                case Color::BLACK:
+                    attributes = 0;
+                    break;
+                case Color::RED:
+                    attributes = FOREGROUND_RED;
+                    break;
+                case Color::GREEN:
+                    attributes = FOREGROUND_GREEN;
+                    break;
+                case Color::YELLOW:
+                    attributes = FOREGROUND_RED | FOREGROUND_GREEN;
+                    break;
+                case Color::BLUE:
+                    attributes = FOREGROUND_BLUE;
+                    break;
+                case Color::MAGENTA:
+                    attributes = FOREGROUND_RED | FOREGROUND_BLUE;
+                    break;
+                case Color::CYAN:
+                    attributes = FOREGROUND_GREEN | FOREGROUND_BLUE;
+                    break;
+                case Color::WHITE:
+                    attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
+                    break;
+                case Color::BRIGHT_BLACK:
+                    attributes = FOREGROUND_INTENSITY;
+                    break;
+                case Color::BRIGHT_RED:
+                    attributes = FOREGROUND_RED | FOREGROUND_INTENSITY;
+                    break;
+                case Color::BRIGHT_GREEN:
+                    attributes = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+                    break;
+                case Color::BRIGHT_YELLOW:
+                    attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+                    break;
+                case Color::BRIGHT_BLUE:
+                    attributes = FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+                    break;
+                case Color::BRIGHT_MAGENTA:
+                    attributes = FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+                    break;
+                case Color::BRIGHT_CYAN:
+                    attributes = FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+                    break;
+                case Color::BRIGHT_WHITE:
+                    attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+                    break;
+                default:
+                    attributes = csbi.wAttributes;
+                    break;
+                }
+                SetConsoleTextAttribute(hConsole, attributes);
+            }
+            return;
+        }
+#endif
         fmt::print("\033[{}m", (color == Color::RESET) ? 0 : static_cast<int>(color));
         flush();
     }
 
     void TerminalUtils::set_color(extras::AccentColor color) {
+#ifdef _WIN32
+        if (s_console_type != ConsoleType::VT) {
+            if (hConsole != INVALID_HANDLE_VALUE) {
+                WORD attributes = 0;
+                switch (color) {
+                case extras::AccentColor::BLACK:
+                    attributes = 0;
+                    break;
+                case extras::AccentColor::RED:
+                    attributes = FOREGROUND_RED;
+                    break;
+                case extras::AccentColor::GREEN:
+                    attributes = FOREGROUND_GREEN;
+                    break;
+                case extras::AccentColor::YELLOW:
+                    attributes = FOREGROUND_RED | FOREGROUND_GREEN;
+                    break;
+                case extras::AccentColor::BLUE:
+                    attributes = FOREGROUND_BLUE;
+                    break;
+                case extras::AccentColor::MAGENTA:
+                    attributes = FOREGROUND_RED | FOREGROUND_BLUE;
+                    break;
+                case extras::AccentColor::CYAN:
+                    attributes = FOREGROUND_GREEN | FOREGROUND_BLUE;
+                    break;
+                case extras::AccentColor::WHITE:
+                    attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE;
+                    break;
+                case extras::AccentColor::BRIGHT_BLACK:
+                    attributes = FOREGROUND_INTENSITY;
+                    break;
+                case extras::AccentColor::BRIGHT_RED:
+                    attributes = FOREGROUND_RED | FOREGROUND_INTENSITY;
+                    break;
+                case extras::AccentColor::BRIGHT_GREEN:
+                    attributes = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+                    break;
+                case extras::AccentColor::BRIGHT_YELLOW:
+                    attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+                    break;
+                case extras::AccentColor::BRIGHT_BLUE:
+                    attributes = FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+                    break;
+                case extras::AccentColor::BRIGHT_MAGENTA:
+                    attributes = FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+                    break;
+                case extras::AccentColor::BRIGHT_CYAN:
+                    attributes = FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+                    break;
+                case extras::AccentColor::BRIGHT_WHITE:
+                    attributes = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+                    break;
+                default:
+                    attributes = csbi.wAttributes;
+                    break;
+                }
+                SetConsoleTextAttribute(hConsole, attributes);
+            }
+            return;
+        }
+#endif
         fmt::print("\033[{}m", (color == extras::AccentColor::RESET) ? 0 : static_cast<int>(color));
         flush();
     }
@@ -114,22 +340,64 @@ namespace tui {
         return length;
     }
 
+    bool TerminalUtils::is_vt_supported() {
+#ifdef _WIN32
+        return s_console_type == ConsoleType::VT;
+#else // *NIX
+        return true;
+#endif
+    }
+
     void TerminalUtils::set_color_rgb(uint8_t r, uint8_t g, uint8_t b) {
         fmt::print("\033[38;2;{};{};{}m", static_cast<int>(r), static_cast<int>(g), static_cast<int>(b));
         flush();
     }
 
     void TerminalUtils::set_color_rgb(const extras::GradientColor color) {
+#ifdef _WIN32
+        if (s_console_type != ConsoleType::VT) {
+            return;
+        }
+#endif
         auto [r, g, b] = color.get_color();
         set_color_rgb(r, g, b);
     }
 
     void TerminalUtils::set_style(Style style) {
+#ifdef _WIN32
+        if (s_console_type != ConsoleType::VT) {
+            if (hConsole != INVALID_HANDLE_VALUE) {
+                switch (style) {
+                case Style::BOLD:
+                    SetConsoleTextAttribute(hConsole, csbi.wAttributes | FOREGROUND_INTENSITY);
+                    break;
+                case Style::REVERSE:
+                    SetConsoleTextAttribute(hConsole,
+                                            ((csbi.wAttributes & 0xF0) >> 4) | ((csbi.wAttributes & 0x0F) << 4));
+                    break;
+                case Style::RESET:
+                    SetConsoleTextAttribute(hConsole, csbi.wAttributes);
+                    break;
+                default:
+                    break; // Other styles not supported on Windows
+                }
+            }
+            return;
+        }
+#endif
         fmt::print("\033[{}m", static_cast<int>(style));
         flush();
     }
 
     void TerminalUtils::reset_formatting() {
+#ifdef _WIN32
+        if (s_console_type != ConsoleType::VT) {
+            if (hConsole != INVALID_HANDLE_VALUE) {
+                SetConsoleTextAttribute(hConsole, csbi.wAttributes);
+            }
+            return;
+        }
+#endif
         fmt::print("\033[0m");
         flush();
     }
@@ -195,11 +463,27 @@ namespace tui {
     }
 
     void TerminalUtils::save_cursor_position() {
+#ifdef _WIN32
+        if (s_console_type != ConsoleType::VT) {
+            if (hConsole != INVALID_HANDLE_VALUE) {
+                GetConsoleScreenBufferInfo(hConsole, &csbi);
+            }
+            return;
+        }
+#endif
         fmt::print("\033[s");
         flush();
     }
 
     void TerminalUtils::restore_cursor_position() {
+#ifdef _WIN32
+        if (s_console_type != ConsoleType::VT) {
+            if (hConsole != INVALID_HANDLE_VALUE) {
+                SetConsoleCursorPosition(hConsole, csbi.dwCursorPosition);
+            }
+            return;
+        }
+#endif
         fmt::print("\033[u");
         flush();
     }
@@ -534,7 +818,6 @@ namespace tui {
         return result;
     }
 
-
     void TerminalUtils::print_safe(const std::string& utf8_str) {
 #ifdef _WIN32
         if (s_console_type == ConsoleType::VT) {
@@ -543,16 +826,83 @@ namespace tui {
             return;
         }
 
-        std::string clean_str = strip_ansi(utf8_str);
-        std::wstring wstr = utf8_to_safe_wstring(clean_str, s_console_type);
+        if (utf8_str.find('\033') == std::string::npos) {
+            std::wstring wstr = utf8_to_safe_wstring(utf8_str, s_console_type);
+            if (s_console_type == ConsoleType::LegacyUnicode) {
+                DWORD written;
+                WriteConsoleW(hConsole, wstr.c_str(), static_cast<DWORD>(wstr.size()), &written, NULL);
+            } else {
+                std::string oem_str = utf16_to_oem(wstr);
+                std::fwrite(oem_str.data(), 1, oem_str.size(), stdout);
+            }
+            flush();
+            return;
+        }
 
-        if (s_console_type == ConsoleType::LegacyUnicode) {
-            DWORD written;
-            WriteConsoleW(hConsole, wstr.c_str(), static_cast<DWORD>(wstr.size()), &written, NULL);
-        } else {
-            std::string oem_str = utf16_to_oem(wstr);
-            // Bypass fmt::print entirely to prevent UTF-8 transcoding crashes on OEM bytes
-            std::fwrite(oem_str.data(), 1, oem_str.size(), stdout);
+        // ansi -> windows console api
+        size_t i = 0;
+        while (i < utf8_str.size()) {
+            if (utf8_str[i] == '\033') {
+                if (i + 1 < utf8_str.size() && utf8_str[i + 1] == '[') {
+                    size_t j = i + 2;
+
+                    // 0x40 - 0x7E => CSI command
+                    while (j < utf8_str.size() && (utf8_str[j] < 0x40 || utf8_str[j] > 0x7E)) {
+                        j++;
+                    }
+
+                    if (j < utf8_str.size()) {
+                        char cmd_char = utf8_str[j];
+                        std::string seq = utf8_str.substr(i + 2, j - (i + 2));
+
+                        if (cmd_char == 'm') {
+                            std::vector<int> codes;
+                            std::stringstream ss(seq);
+                            std::string token;
+                            while (std::getline(ss, token, ';')) {
+                                if (!token.empty()) {
+                                    try {
+                                        codes.push_back(std::stoi(token));
+                                    } catch (...) {
+                                    }
+                                }
+                            }
+                            if (codes.empty()) {
+                                codes.push_back(0);
+                            }
+
+                            if (hConsole != INVALID_HANDLE_VALUE) {
+                                CONSOLE_SCREEN_BUFFER_INFO temp_csbi;
+                                if (GetConsoleScreenBufferInfo(hConsole, &temp_csbi)) {
+                                    WORD new_attrs = convert_ansi_attrs(codes, temp_csbi.wAttributes);
+                                    SetConsoleTextAttribute(hConsole, new_attrs);
+                                }
+                            }
+                        }
+
+                        i = j + 1;
+                        continue;
+                    }
+                }
+            }
+
+            size_t next_esc = utf8_str.find('\033', i);
+            if (next_esc == std::string::npos) {
+                next_esc = utf8_str.size();
+            }
+
+            std::string chunk = utf8_str.substr(i, next_esc - i);
+            if (!chunk.empty()) {
+                std::wstring wstr = utf8_to_safe_wstring(chunk, s_console_type);
+                if (s_console_type == ConsoleType::LegacyUnicode) {
+                    DWORD written;
+                    WriteConsoleW(hConsole, wstr.c_str(), static_cast<DWORD>(wstr.size()), &written, NULL);
+                } else {
+                    std::string oem_str = utf16_to_oem(wstr);
+                    std::fwrite(oem_str.data(), 1, oem_str.size(), stdout);
+                }
+            }
+            i = next_esc;
         }
 #else
         fmt::print("{}", utf8_str);
