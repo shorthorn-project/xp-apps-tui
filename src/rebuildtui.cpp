@@ -2,7 +2,6 @@
 #include <fmt/core.h>
 #include <utility>
 #include "core/terminal.hpp"
-#include "theme/colors.hpp"
 
 namespace tui {
 

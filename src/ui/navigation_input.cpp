@@ -18,7 +18,7 @@ namespace tui {
     }
 
     void NavigationTUI::handle_input(const Key key, const char character) {
-        if (std::tolower(character) == 'q') { // TODO: instead of hard-coding this, make it configurable in TUI builder
+        if (std::tolower(character) == std::tolower(config_.keys.quit_key)) {
             exit();
             return;
         }
@@ -67,17 +67,14 @@ namespace tui {
 
         case Key::NORMAL:
             if (current_state_ == NavigationState::ITEM_SELECTION) {
-                /*
-                // TODO: instead of hard-coding this, make it configurable in TUI builder
-                */
-                if (character == 'b') {
+                if (character == config_.keys.back_key) {
                     return_to_sections();
-                } else if (character == 'a') {
+                } else if (character == config_.keys.select_all_key) {
                     if (current_section_index_ < sections_.size()) {
                         sections_[current_section_index_].select_all();
                         needs_redraw_ = true;
                     }
-                } else if (character == 'n') {
+                } else if (character == config_.keys.select_none_key) {
                     if (current_section_index_ < sections_.size()) {
                         sections_[current_section_index_].clear_selections();
                         needs_redraw_ = true;
@@ -94,7 +91,7 @@ namespace tui {
                     move_selection_down();
                 } else if (character == 'k') {
                     move_selection_up();
-                } else if (character == 'h') {
+                } else if (character == config_.keys.back_key) {
                     return_to_sections();
                 }
             }

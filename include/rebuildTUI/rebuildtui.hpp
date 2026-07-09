@@ -75,12 +75,23 @@ namespace tui {
         };
 
         /**
+         * @brief Custom keyboard controls mapping config
+         */
+        struct KeyConfig {
+            char quit_key = 'q';
+            char back_key = 'b';
+            char select_all_key = 'a';
+            char select_none_key = 'n';
+        };
+
+        /**
          * @brief Complete configuration structure
          */
         struct Config {
             Theme theme;
             Layout layout;
             TextConfig text;
+            KeyConfig keys; // Customizable control keys bindings
 
             // Shortcuts
             std::map<char, std::string> custom_shortcuts; ///< Custom keyboard shortcuts
@@ -276,13 +287,7 @@ namespace tui {
         /**
          * @brief Render footer with help text and page info
          */
-        // void render_footer(int term_height, int left_padding, int content_width) const;
         void render_footer(int term_height, int left_padding, int content_width, const SelectableItem* item);
-
-        /**
-         * @brief Handle input in section selection mode
-         */
-        // void handle_section_input(TerminalUtils::Key key, char character);
 
         /**
          * @brief Handle input in item selection mode
@@ -308,8 +313,6 @@ namespace tui {
         /**
          * @brief Rendering helpers
          */
-        // [[nodiscard]] std::vector<std::string> get_section_display_items() const;
-        // [[nodiscard]] std::vector<std::string> get_current_item_display_items() const;
         [[nodiscard]] std::string format_item_with_theme(const SelectableItem& item, bool is_selected) const;
         [[nodiscard]] std::string get_page_info_string() const;
 
@@ -318,13 +321,8 @@ namespace tui {
         /**
          * @brief Layout calculation
          */
-        // [[nodiscard]] std::pair<int, int> calculate_content_dimensions() const;
-        // std::tuple<int, int, int, int> get_content_area() const;
-        // std::pair<int, int> apply_centering_offset(int row, int col) const;
         [[nodiscard]] int get_effective_content_width(int) const;
         [[nodiscard]] int get_effective_content_height() const;
-        // bool should_center_horizontally() const;
-        // bool should_center_vertically() const;
 
         /**
          * @brief State management
@@ -335,8 +333,6 @@ namespace tui {
          * @brief Utility methods
          */
         void validate_indices();
-        // not impl
-        // [[nodiscard]] std::string apply_theme_formatting(const std::string &text, const std::string &type) const;
 
         struct FormattedText {
             std::string content;
@@ -365,11 +361,6 @@ namespace tui {
         NavigationTUI::UpdateCallback update_callback_;
 
     public:
-        /*
-         * TODO: may I move theme_* to styles.hpp (or extras.hpp)?
-         */
-
-
         /**
          * @brief Theme configuration methods
          */
@@ -414,6 +405,12 @@ namespace tui {
         NavigationBuilder& keys_quick_select(bool enable);
         NavigationBuilder& keys_vim_style(bool enable);
         NavigationBuilder& keys_custom_shortcut(char key, const std::string& description);
+        NavigationBuilder& keys_custom_shortcuts(const std::vector<std::pair<char, std::string>>& shortcuts);
+        NavigationBuilder& keys_quit(char key);
+        NavigationBuilder& keys_back(char key);
+        NavigationBuilder& keys_select_all(char key);
+        NavigationBuilder& keys_select_none(char key);
+        NavigationBuilder& keys_controls(const NavigationTUI::KeyConfig& keys);
 
         /**
          * @brief Section management methods
@@ -455,5 +452,17 @@ namespace tui {
 
         NavigationBuilder& reset();
     };
+
+    namespace extras {
+        /**
+         * @brief Theme presets implementation separated from main header
+         */
+        struct ThemePresets {
+            static void apply_minimal(NavigationTUI::Theme& theme);
+            static void apply_fancy(NavigationTUI::Theme& theme);
+            static void apply_retro(NavigationTUI::Theme& theme);
+            static void apply_modern(NavigationTUI::Theme& theme);
+        };
+    } // namespace extras
 
 } // namespace tui

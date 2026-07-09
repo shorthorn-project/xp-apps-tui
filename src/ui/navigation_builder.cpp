@@ -169,6 +169,39 @@ namespace tui {
         return *this;
     }
 
+    NavigationBuilder& NavigationBuilder::keys_custom_shortcuts(
+        const std::vector<std::pair<char, std::string>>& shortcuts) {
+        for (const auto& [key, desc] : shortcuts) {
+            config_.custom_shortcuts[key] = desc;
+        }
+        return *this;
+    }
+
+    NavigationBuilder& NavigationBuilder::keys_quit(char key) {
+        config_.keys.quit_key = key;
+        return *this;
+    }
+
+    NavigationBuilder& NavigationBuilder::keys_back(char key) {
+        config_.keys.back_key = key;
+        return *this;
+    }
+
+    NavigationBuilder& NavigationBuilder::keys_select_all(char key) {
+        config_.keys.select_all_key = key;
+        return *this;
+    }
+
+    NavigationBuilder& NavigationBuilder::keys_select_none(char key) {
+        config_.keys.select_none_key = key;
+        return *this;
+    }
+
+    NavigationBuilder& NavigationBuilder::keys_controls(const NavigationTUI::KeyConfig& keys) {
+        config_.keys = keys;
+        return *this;
+    }
+
     NavigationBuilder& NavigationBuilder::add_section(const Section& section) {
         sections_.push_back(section);
         return *this;
@@ -220,39 +253,22 @@ namespace tui {
     }
 
     NavigationBuilder& NavigationBuilder::theme_minimal() {
-        config_.theme.use_unicode = false;
-        config_.theme.use_colors = false;
-        config_.theme.selected_prefix = "* ";
-        config_.theme.unselected_prefix = "  ";
-        config_.theme.border_style = extras::BorderStyle::ASCII;
+        extras::ThemePresets::apply_minimal(config_.theme);
         return *this;
     }
 
     NavigationBuilder& NavigationBuilder::theme_fancy() {
-        config_.theme.use_unicode = true;
-        config_.theme.use_colors = true;
-        config_.theme.selected_prefix = "✓ ";
-        config_.theme.unselected_prefix = "○ ";
-        config_.theme.border_style = extras::BorderStyle::ROUNDED;
+        extras::ThemePresets::apply_fancy(config_.theme);
         return *this;
     }
 
     NavigationBuilder& NavigationBuilder::theme_retro() {
-        config_.theme.use_unicode = false;
-        config_.theme.use_colors = false;
-        config_.theme.selected_prefix = "[X] ";
-        config_.theme.unselected_prefix = "[ ] ";
-        config_.theme.border_style = extras::BorderStyle::DOUBLE;
+        extras::ThemePresets::apply_retro(config_.theme);
         return *this;
     }
 
     NavigationBuilder& NavigationBuilder::theme_modern() {
-        config_.theme.use_unicode = true;
-        config_.theme.use_colors = true;
-        config_.theme.selected_prefix = "● ";
-        config_.theme.unselected_prefix = "○ ";
-        config_.theme.border_style = extras::BorderStyle::ROUNDED;
-        config_.theme.accent_color = extras::AccentColor::BLUE;
+        extras::ThemePresets::apply_modern(config_.theme);
         return *this;
     }
 

@@ -2,7 +2,7 @@
 #include <fmt/base.h>
 #include "core/input.hpp"
 
-#include <sstream>
+#include <sstream> // IWYU pragma: keep
 #include <vector>
 
 #ifndef _WIN32
