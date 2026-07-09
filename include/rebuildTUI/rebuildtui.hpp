@@ -7,6 +7,8 @@
 
 #include <map>
 #include <memory>
+#include <vector>
+#include <utility>
 
 namespace tui {
     /**
