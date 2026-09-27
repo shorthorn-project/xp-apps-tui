@@ -37,8 +37,12 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/rebuildTUI)
 set(LIB_SOURCES
         src/core/terminal.cpp
         src/core/input.cpp
-        src/rebuildtui.cpp
         src/theme/gradient.cpp
+        src/theme/colors.cpp
+        src/ui/navigation_input.cpp
+        src/ui/navigation_render.cpp
+        src/ui/navigation_builder.cpp
+        src/rebuildtui.cpp
 )
 
 set(HEADERS

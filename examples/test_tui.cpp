@@ -184,6 +184,7 @@ int main() {
                         std::cout << "🔄 Navigation state: " << state_names[static_cast<int>(old_state)] << " → "
                                   << state_names[static_cast<int>(new_state)] << std::endl;
                     })
+                // TODO: impl keys_custom_shortcuts (accepts vector<char, string>)
                 .on_custom_command([](const char key, NavigationTUI::NavigationState /*state*/) -> bool {
                     switch (key) {
                     case '\n':

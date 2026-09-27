@@ -1,11 +1,16 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <tuple>
 #include <vector>
 
 
 namespace tui::extras {
+    struct Color;
+
+    std::string get_color_sequence(const Color& color);
+
     using color = std::tuple<uint8_t, uint8_t, uint8_t>;
     using v_styles = std::vector<color>;
 

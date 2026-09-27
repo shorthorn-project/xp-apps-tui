@@ -36,6 +36,7 @@ int main() {
                 all_sections[section_index].items[item_index].selected = selected;
             }
         })
+        // TODO: impl keys_custom_shortcuts (accepts vector<char, string>)
         .keys_custom_shortcut('s', "Save configuration")
         .on_custom_command([&all_sections](const char key, const NavigationTUI::NavigationState&) {
             if (key == 's') {
